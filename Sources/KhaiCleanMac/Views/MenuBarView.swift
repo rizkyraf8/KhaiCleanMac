@@ -2,13 +2,16 @@ import SwiftUI
 
 struct MenuBarLabel: View {
     let monitor: SystemMonitor
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         HStack(spacing: 3) {
-            Image(systemName: "sparkles")
+            Image(nsImage: LogoArtwork.menuBarImage())
             Text("\(Int(monitor.cpu * 100))%")
                 .monospacedDigit()
         }
+        // The label lives as long as the app, so it hands out the way to reopen the window.
+        .onAppear { AppWindow.openMain = { openWindow(id: "main") } }
     }
 }
 
@@ -55,6 +58,7 @@ struct MenuBarView: View {
 
             HStack {
                 Button {
+                    NSApp.setActivationPolicy(.regular)
                     openWindow(id: "main")
                     NSApp.activate()
                 } label: {

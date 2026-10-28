@@ -1,5 +1,17 @@
 import AppKit
 
+extension FileManager.DirectoryEnumerator {
+    /// Calls `body` for each URL inside its own autorelease pool. Without one, the Foundation objects
+    /// made for every file pile up until the whole walk ends, which is gigabytes on a big home folder.
+    /// Return `false` from `body` to stop early.
+    func forEachURL(_ body: (URL) -> Bool) {
+        while autoreleasepool(invoking: { () -> Bool in
+            guard let url = nextObject() as? URL else { return false }
+            return body(url)
+        }) {}
+    }
+}
+
 enum FileSizer {
     private static let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .totalFileAllocatedSizeKey, .fileAllocatedSizeKey]
 
@@ -16,11 +28,12 @@ enum FileSizer {
         ) else { return 0 }
 
         var total: Int64 = 0
-        for case let file as URL in enumerator {
-            if Task.isCancelled { break }
+        enumerator.forEachURL { file in
+            if Task.isCancelled { return false }
             if let values = try? file.resourceValues(forKeys: keys), values.isRegularFile == true, values.isSymbolicLink != true {
                 total += size(from: values)
             }
+            return true
         }
         return total
     }
@@ -35,20 +48,59 @@ enum Trasher {
     static func moveToTrash(_ items: [CleanItem]) -> CleanReport {
         var report = CleanReport()
         for item in items {
-            do {
-                try FileManager.default.trashItem(at: item.url, resultingItemURL: nil)
+            let moved: Bool
+            if item.members.isEmpty {
+                moved = (try? FileManager.default.trashItem(at: item.url, resultingItemURL: nil)) != nil
+            } else {
+                moved = trashMembers(of: item)
+            }
+            if moved {
                 report.movedCount += 1
                 report.movedSize += item.size
-            } catch {
+            } else {
                 report.failed.append(item)
             }
         }
         return report
     }
+
+    /// Gathers many small files (such as single cache entries) into one dated folder and trashes
+    /// that folder, so the Trash gets one tidy item instead of thousands. Paths inside the folder
+    /// mirror the originals, so files can still be put back by hand.
+    private static func trashMembers(of item: CleanItem) -> Bool {
+        let fm = FileManager.default
+        let stamp = Date().formatted(.verbatim("\(year: .defaultDigits)-\(month: .twoDigits)-\(day: .twoDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)).\(minute: .twoDigits).\(second: .twoDigits)", timeZone: .current, calendar: .current))
+        let staging = URL.homeDirectory
+            .appending(path: "Library/Caches/\(AppInfo.bundleID)/Trash staging/\(item.name) \(stamp)")
+        guard (try? fm.createDirectory(at: staging, withIntermediateDirectories: true)) != nil else { return false }
+
+        var moved: [(from: URL, to: URL)] = []
+        let base = item.url.path + "/"
+        for file in item.members {
+            let relative = file.path.hasPrefix(base) ? String(file.path.dropFirst(base.count)) : file.lastPathComponent
+            let target = staging.appending(path: relative)
+            try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if (try? fm.moveItem(at: file, to: target)) != nil { moved.append((file, target)) }
+        }
+
+        if !moved.isEmpty, (try? fm.trashItem(at: staging, resultingItemURL: nil)) != nil { return true }
+        // Nothing moved, or the Trash refused: put every file back where it came from.
+        for pair in moved { try? fm.moveItem(at: pair.to, to: pair.from) }
+        try? fm.removeItem(at: staging)
+        return false
+    }
 }
 
 struct JunkScanner: Sendable {
+    /// How long Chrome's web cache may go unused before it counts as junk.
+    var chromeMaxAgeDays = ChromeCacheAge.days30.rawValue
+
     private static let installerExtensions: Set<String> = ["dmg", "pkg", "mpkg", "xip"]
+    /// Cache folders shared by several apps of one vendor (Google holds Chrome and Android Studio).
+    /// They are listed per app, so one open app doesn't lock the others and one isn't removed with another.
+    private static let vendorFolders: Set<String> = ["Google", "Mozilla", "JetBrains", "Microsoft", "Adobe"]
+    /// Handled entry by entry in the Chrome category instead.
+    private static let chromeFolders: Set<String> = ["Google/Chrome", "Google/Chrome-headless"]
     private static let developerFolders = [
         "Developer/Xcode/DerivedData",
         "Developer/Xcode/iOS DeviceSupport",
@@ -61,7 +113,9 @@ struct JunkScanner: Sendable {
         let items: [CleanItem]
         switch kind {
         case .userCache:
-            items = children(of: library("Caches"), excluding: [AppInfo.bundleID])
+            items = appCaches()
+        case .chrome:
+            items = ChromeCacheScanner(maxAgeDays: chromeMaxAgeDays).scan()
         case .userLogs:
             items = children(of: library("Logs"))
         case .developer:
@@ -74,6 +128,17 @@ struct JunkScanner: Sendable {
 
     private func library(_ subpath: String) -> URL {
         URL.homeDirectory.appending(path: "Library/\(subpath)", directoryHint: .isDirectory)
+    }
+
+    private func appCaches() -> [CleanItem] {
+        let caches = library("Caches")
+        return children(of: caches, excluding: [AppInfo.bundleID]).flatMap { item -> [CleanItem] in
+            let vendor = item.url.lastPathComponent
+            guard Self.vendorFolders.contains(vendor) else { return [item] }
+            return children(of: item.url)
+                .filter { !Self.chromeFolders.contains("\(vendor)/\($0.url.lastPathComponent)") }
+                .map { CleanItem(url: $0.url, size: $0.size, title: "\(vendor)/\($0.url.lastPathComponent)") }
+        }
     }
 
     private func children(of folder: URL, excluding: Set<String> = []) -> [CleanItem] {
@@ -124,6 +189,10 @@ struct RunningAppMatcher: Sendable {
             return nil
         case .developer:
             return apps.first { $0.bundleID == "com.apple.dt.Xcode" || $0.bundleID == "com.apple.iphonesimulator" }
+        case .chrome:
+            // Old headless temp folders don't belong to the Chrome the user has open.
+            guard item.url != ChromeCacheScanner.headlessRoot else { return nil }
+            return apps.first { $0.bundleID == ChromeCacheScanner.bundleID }
         case .userCache, .userLogs:
             let entry = item.name.lowercased()
             return apps.first { matches(entry, $0) }
@@ -135,6 +204,12 @@ struct RunningAppMatcher: Sendable {
         let name = app.name.lowercased()
         if entry == id || entry.hasPrefix(id + ".") { return true }
         if entry == name || entry == name.replacingOccurrences(of: " ", with: "") { return true }
+        // An app inside a vendor folder, e.g. "google/androidstudio2026.1.1" for Android Studio.
+        if let slash = entry.lastIndex(of: "/") {
+            let leaf = entry[entry.index(after: slash)...]
+            let compactName = name.replacingOccurrences(of: " ", with: "")
+            return compactName.count >= 4 && (leaf.hasPrefix(compactName) || leaf.hasPrefix(id))
+        }
         // Vendor folders such as "Google" (Chrome, Android Studio) or "Mozilla".
         let parts = id.split(separator: ".")
         if parts.count >= 3, parts[1] != "apple", parts[1].count >= 4, entry == parts[1] { return true }
@@ -161,26 +236,29 @@ struct LargeFileScanner: Sendable {
 
         var found: [LargeFile] = []
         var visited = 0
-        for case let url as URL in enumerator {
-            if Task.isCancelled { return [] }
+        var cancelled = false
+        enumerator.forEachURL { url in
+            if Task.isCancelled { cancelled = true; return false }
             visited += 1
             if visited % 1_500 == 0 { progress(visited) }
 
             if url.standardizedFileURL.path == library {
                 enumerator.skipDescendants()
-                continue
+                return true
             }
             guard let values = try? url.resourceValues(forKeys: Set(Self.keys)),
-                  values.isRegularFile == true, values.isSymbolicLink != true else { continue }
+                  values.isRegularFile == true, values.isSymbolicLink != true else { return true }
             let size = Int64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
-            guard size >= minSize else { continue }
+            guard size >= minSize else { return true }
             found.append(LargeFile(
                 url: url,
                 size: size,
                 lastUsed: values.contentAccessDate ?? values.contentModificationDate,
                 kind: FileKind(pathExtension: url.pathExtension)
             ))
+            return true
         }
+        if cancelled { return [] }
         progress(visited)
         return found.sorted { $0.size > $1.size }
     }

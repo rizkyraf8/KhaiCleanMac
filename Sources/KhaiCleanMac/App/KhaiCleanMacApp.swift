@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AppInfo {
-    static let bundleID = "com.khai.KhaiCleanMac"
+    static let bundleID = "id.rizkyraf.KhaiCleanMac"
     static let name = "KhaiCleanMac"
     static let repository = URL(string: "https://github.com/rizkyraf8/KhaiCleanMac")!
 
@@ -49,11 +49,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.appearance = AppSettings.shared.appearance.nsAppearance
         NSApp.activate()
         #if DEBUG
-        Snapshot.runIfRequested()
+        if CommandLine.arguments.contains("--snapshot") {
+            Snapshot.runIfRequested()
+            return
+        }
         #endif
+        ReminderService.shared.start()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        !AppSettings.shared.keepInMenuBar
+    }
+
+    /// Clicking the Dock icon (or opening the app again) while only the menu bar is left brings the window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows { AppWindow.show() }
+        return true
     }
 }

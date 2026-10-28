@@ -73,6 +73,9 @@ struct GradientButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 14, weight: .semibold, design: .rounded))
+            // Buttons keep their label on one line instead of squeezing into a narrow column.
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(.white)
             .padding(.horizontal, 22)
             .padding(.vertical, 11)
@@ -91,6 +94,8 @@ struct SoftButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(.primary)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -354,5 +359,36 @@ private struct ToastModifier: ViewModifier {
 extension View {
     func toast(_ message: Binding<ToastMessage?>) -> some View {
         modifier(ToastModifier(message: message))
+    }
+}
+
+/// Finder icons, drawn once at the size they are shown. `NSWorkspace.icon(forFile:)` returns an image
+/// holding every resolution up to 1024 px, and asking for it again on every redraw adds up fast.
+@MainActor
+enum FileIcon {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 500
+        return cache
+    }()
+
+    static func image(for url: URL, size: CGFloat) -> NSImage {
+        let key = "\(Int(size))|\(url.path)" as NSString
+        if let cached = cache.object(forKey: key) { return cached }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        let pixels = Int((size * (NSScreen.main?.backingScaleFactor ?? 2)).rounded())
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { return icon }
+        rep.size = NSSize(width: size, height: size)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        icon.draw(in: NSRect(x: 0, y: 0, width: size, height: size))
+        NSGraphicsContext.restoreGraphicsState()
+        let image = NSImage(size: rep.size)
+        image.addRepresentation(rep)
+        cache.setObject(image, forKey: key)
+        return image
     }
 }

@@ -58,7 +58,20 @@ final class AppSettings: @unchecked Sendable {
     private enum Keys {
         static let language = "language"
         static let appearance = "appearance"
+        static let keepInMenuBar = "keepInMenuBar"
+        static let remindersEnabled = "remindersEnabled"
+        static let reminderFrequency = "reminderFrequency"
+        static let reminderThreshold = "reminderThreshold"
+        static let lastReminderCheck = "lastReminderCheck"
+        static let chromeCacheAge = "chromeCacheAge"
+        static let legacyMigrated = "legacyPreferencesMigrated"
+
+        static let all = [language, appearance, keepInMenuBar, remindersEnabled,
+                          reminderFrequency, reminderThreshold, lastReminderCheck, chromeCacheAge]
     }
+
+    /// The bundle ID used before 0.3.0. Preferences saved under it are copied over once.
+    private static let legacyBundleID = "com.khai.KhaiCleanMac"
 
     var language: AppLanguage {
         didSet { save(language.rawValue, forKey: Keys.language) }
@@ -68,6 +81,32 @@ final class AppSettings: @unchecked Sendable {
         didSet { save(appearance.rawValue, forKey: Keys.appearance) }
     }
 
+    /// Closing the window leaves the app running in the menu bar instead of quitting.
+    var keepInMenuBar: Bool {
+        didSet { save(keepInMenuBar, forKey: Keys.keepInMenuBar) }
+    }
+
+    var remindersEnabled: Bool {
+        didSet { save(remindersEnabled, forKey: Keys.remindersEnabled) }
+    }
+
+    var reminderFrequency: ReminderFrequency {
+        didSet { save(reminderFrequency.rawValue, forKey: Keys.reminderFrequency) }
+    }
+
+    var reminderThreshold: ReminderThreshold {
+        didSet { save(reminderThreshold.rawValue, forKey: Keys.reminderThreshold) }
+    }
+
+    var lastReminderCheck: Date? {
+        didSet { save(lastReminderCheck, forKey: Keys.lastReminderCheck) }
+    }
+
+    /// How long Chrome's web cache may go unused before Smart Scan offers to remove it.
+    var chromeCacheAge: ChromeCacheAge {
+        didSet { save(chromeCacheAge.rawValue, forKey: Keys.chromeCacheAge) }
+    }
+
     /// Debug snapshots switch language without touching the user's saved choice.
     @ObservationIgnored var persists = true
 
@@ -75,14 +114,71 @@ final class AppSettings: @unchecked Sendable {
 
     private init() {
         let defaults = UserDefaults.standard
+        Self.migrateLegacyPreferences(into: defaults)
         language = defaults.string(forKey: Keys.language).flatMap(AppLanguage.init) ?? .indonesian
         appearance = defaults.string(forKey: Keys.appearance).flatMap(AppAppearance.init) ?? .system
+        keepInMenuBar = defaults.object(forKey: Keys.keepInMenuBar) as? Bool ?? true
+        remindersEnabled = defaults.bool(forKey: Keys.remindersEnabled)
+        reminderFrequency = defaults.string(forKey: Keys.reminderFrequency).flatMap(ReminderFrequency.init) ?? .weekly
+        reminderThreshold = ReminderThreshold(rawValue: Int64(defaults.integer(forKey: Keys.reminderThreshold))) ?? .gb5
+        lastReminderCheck = defaults.object(forKey: Keys.lastReminderCheck) as? Date
+        chromeCacheAge = ChromeCacheAge(rawValue: defaults.integer(forKey: Keys.chromeCacheAge)) ?? .days30
     }
 
-    private func save(_ value: String, forKey key: String) {
+    private static func migrateLegacyPreferences(into defaults: UserDefaults) {
+        guard Bundle.main.bundleIdentifier != legacyBundleID,
+              !defaults.bool(forKey: Keys.legacyMigrated) else { return }
+        defaults.set(true, forKey: Keys.legacyMigrated)
+        guard let legacy = defaults.persistentDomain(forName: legacyBundleID) else { return }
+        for key in Keys.all where defaults.object(forKey: key) == nil {
+            if let value = legacy[key] { defaults.set(value, forKey: key) }
+        }
+    }
+
+    private func save(_ value: Any?, forKey key: String) {
         guard persists else { return }
         UserDefaults.standard.set(value, forKey: key)
     }
+}
+
+enum ReminderFrequency: String, CaseIterable, Identifiable, Sendable {
+    case daily, weekly, monthly
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .daily: L("Harian", "Daily")
+        case .weekly: L("Mingguan", "Weekly")
+        case .monthly: L("Bulanan", "Monthly")
+        }
+    }
+
+    var interval: TimeInterval {
+        switch self {
+        case .daily: 24 * 60 * 60
+        case .weekly: 7 * 24 * 60 * 60
+        case .monthly: 30 * 24 * 60 * 60
+        }
+    }
+}
+
+enum ReminderThreshold: Int64, CaseIterable, Identifiable, Sendable {
+    case gb1 = 1_000_000_000
+    case gb5 = 5_000_000_000
+    case gb10 = 10_000_000_000
+
+    var id: Int64 { rawValue }
+    var label: String { rawValue.formattedBytes }
+}
+
+enum ChromeCacheAge: Int, CaseIterable, Identifiable, Sendable {
+    case days7 = 7
+    case days30 = 30
+    case days90 = 90
+
+    var id: Int { rawValue }
+    var title: String { L("\(rawValue) hari", "\(rawValue) days") }
 }
 
 /// Gives a window's content the locale of the chosen language (dates, numbers, sizes).

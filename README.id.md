@@ -19,13 +19,16 @@
 
 | Modul | Fungsi |
 |---|---|
-| **Smart Scan** | Mencari cache aplikasi (`~/Library/Caches`), log (`~/Library/Logs`), sampah Xcode (DerivedData, Device Support, cache simulator), dan installer `.dmg`/`.pkg` lama di Downloads |
+| **Smart Scan** | Mencari cache aplikasi (`~/Library/Caches`), log (`~/Library/Logs`), sampah Xcode (DerivedData, Device Support, cache simulator), dan installer `.dmg`/`.pkg` lama di Downloads. Cache Chrome dibersihkan per entri: hanya cache web lama dan Code Cache usang yang dibuang |
 | **File Besar** | Mencari file di atas 50 MB, 100 MB, 500 MB, atau 1 GB di folder pribadi, dengan filter jenis file dan urutan |
 | **Duplikat** | Mencari file yang isinya identik, dan secara default menyimpan salinan yang paling lama |
+| **Developer** | Mencari dependensi proyek lama (`node_modules`, `Pods`, `.build`, `target`) dan arsip Xcode. Cache package manager (Gradle, npm, Yarn, Cargo, Maven, dll.) dibersihkan per entri: hanya library yang tidak dipakai 30, 60, atau 90 hari yang dihapus, jadi proyek aktif tetap cepat di-build. Juga menampilkan perintah Terminal untuk Homebrew, Docker, simulator, dan Go |
 | **Space Lens** | Menampilkan peta treemap isi folder (default: Home). Klik dua kali untuk masuk ke folder, dan pakai breadcrumb untuk kembali |
 | **Uninstaller** | Menghapus aplikasi dari `/Applications` dan `~/Applications` beserta file sisanya (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents, dll.) |
-| **Menu bar** | Menampilkan persentase CPU di menu bar, dengan panel berisi CPU, memori, disk, dan baterai |
-| **Pengaturan** | Mengganti bahasa (Bahasa Indonesia atau English) dan tampilan (Ikuti Sistem, Terang, atau Gelap). Buka dengan ⌘, atau dari bagian bawah sidebar |
+| **Memori** | Menampilkan tekanan memori, rincian RAM, dan pemakaian swap, plus daftar app yang paling banyak memakai RAM (termasuk proses pembantunya) dengan tombol Keluar. Bisa juga melepas cache file dengan `purge`, yang butuh password admin |
+| **Menu bar** | Menampilkan persentase CPU di menu bar, dengan panel berisi CPU, memori, disk, dan baterai. Aplikasi tetap berjalan di sana setelah jendela ditutup |
+| **Pengingat** | Memeriksa sampah setiap hari, minggu, atau bulan, lalu mengirim notifikasi kalau sudah lebih dari 1, 5, atau 10 GB. Tidak pernah menghapus apa pun sendiri |
+| **Pengaturan** | Bahasa (Bahasa Indonesia atau English), tampilan (Ikuti Sistem, Terang, atau Gelap), buka saat login, menu bar, dan pengingat. Buka dengan ⌘, atau dari bagian bawah sidebar |
 
 Perubahan di setiap versi tercatat di [CHANGELOG.md](CHANGELOG.md). Versi yang sedang dipakai ditampilkan di bagian bawah sidebar dan di Pengaturan → Tentang.
 
@@ -43,6 +46,7 @@ Perubahan di setiap versi tercatat di [CHANGELOG.md](CHANGELOG.md). Versi yang s
 - **Tidak ada yang dihapus permanen.** Semua item dipindahkan ke Trash, jadi masih bisa dikembalikan sebelum Trash dikosongkan.
 - **Tidak ada yang dihapus tanpa persetujuan.** Setiap modul menampilkan apa saja yang ditemukan dan meminta konfirmasi dulu.
 - **Aplikasi yang sedang terbuka dilindungi.** Smart Scan mengunci cache dan log milik aplikasi yang sedang berjalan, lalu mengeceknya lagi tepat sebelum membersihkan.
+- **Cache Chrome yang aktif tetap aman.** Yang dibuang hanya entri cache web yang tidak dipakai lebih lama dari batas pilihanmu (7, 30, atau 90 hari) dan Code Cache dari versi Chrome sebelumnya, dan hanya saat Chrome tertutup. Versi Chrome lama di dalam Chrome.app tidak pernah disentuh: selama update menunggu relaunch, versi "lama" itulah yang sedang berjalan, dan Chrome menghapusnya sendiri setelah relaunch.
 - **Uninstaller tidak menampilkan aplikasi bawaan Apple**, dan menolak menghapus aplikasi yang sedang berjalan.
 - **Duplikat ditangani dengan hati-hati:**
   - Symlink dan hard link tidak dianggap salinan.
@@ -118,7 +122,6 @@ Logo digambar lewat kode di `Design/LogoArtwork.swift`. Ikon aplikasi dan logo d
 
 ## Rencana berikutnya
 
-- Tetap berjalan di menu bar setelah jendela ditutup, dan bisa dibuka otomatis saat login
 - Pengelola Login Items dan LaunchAgents
 - Mengosongkan Trash dan membersihkan cache sistem lewat privileged helper
 - Sign dengan Developer ID dan notarization untuk DMG yang bisa diunduh

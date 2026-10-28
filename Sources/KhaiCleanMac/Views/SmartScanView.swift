@@ -106,6 +106,9 @@ struct SmartScanView: View {
                 if !model.inUseApps.isEmpty || model.hasSystemOwners {
                     inUseNotice
                 }
+                if let update = model.chromeUpdate {
+                    ChromeUpdateNotice(update: update, isChromeRunning: model.isChromeRunning)
+                }
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
                         ForEach(model.categories) { category in
@@ -427,7 +430,7 @@ struct ItemRow: View {
             } else {
                 CheckCircle(isOn: isOn, colors: colors)
             }
-            Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
+            Image(nsImage: FileIcon.image(for: item.url, size: 24))
                 .resizable()
                 .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 1) {
@@ -441,7 +444,7 @@ struct ItemRow: View {
                         .foregroundStyle(Palette.sunny[1])
                         .lineLimit(1)
                 } else {
-                    Text(item.url.deletingLastPathComponent().abbreviatedPath)
+                    Text(item.detail ?? item.url.deletingLastPathComponent().abbreviatedPath)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -467,5 +470,54 @@ struct ItemRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onToggle)
         .onHover { isHovering = $0 }
+    }
+}
+
+/// Explains old Chrome versions instead of deleting them: while Chrome waits for a relaunch,
+/// the "old" version is the one that is running.
+private struct ChromeUpdateNotice: View {
+    let update: ChromeUpdateInfo
+    let isChromeRunning: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            GradientIcon(symbol: "arrow.clockwise", colors: JunkKind.chrome.colors, size: 36, corner: 11)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .softCard(padding: 14, radius: 18)
+    }
+
+    private var title: String {
+        guard update.hasOldVersions else {
+            return L("Google Updater menyimpan versi lama", "Google Updater keeps old versions")
+        }
+        return isChromeRunning
+            ? L("Chrome menunggu relaunch · \(update.oldVersionsSize.formattedBytes) bisa kembali", "Chrome is waiting to relaunch · \(update.oldVersionsSize.formattedBytes) to reclaim")
+            : L("Versi Chrome lama · \(update.oldVersionsSize.formattedBytes)", "Old Chrome version · \(update.oldVersionsSize.formattedBytes)")
+    }
+
+    private var message: String {
+        var parts: [String] = []
+        if update.hasOldVersions {
+            let versions = update.oldVersions.joined(separator: ", ")
+            parts.append(isChromeRunning
+                ? L("Versi \(versions) masih dipakai Chrome yang sedang terbuka, jadi tidak dihapus. Pilih menu Chrome › Relaunch, nanti Chrome menghapus versi lama itu sendiri. Setelah itu pindai ulang, karena Code Cache dari versi lama ikut jadi usang.",
+                    "Version \(versions) is still used by the Chrome you have open, so it isn't removed. Choose Chrome › Relaunch and Chrome deletes the old version itself. Then scan again, as the old version's code cache becomes obsolete too.")
+                : L("Versi \(versions) tidak dihapus dari dalam Chrome.app. Buka Chrome sekali, nanti Chrome menghapusnya sendiri.",
+                    "Version \(versions) isn't removed from inside Chrome.app. Open Chrome once and it deletes it itself."))
+        }
+        if update.updaterLeftovers > 0 {
+            parts.append(L("\(update.updaterLeftovers) versi lama Google Updater ada di folder sistem dan butuh izin admin, jadi dilewati.",
+                           "\(update.updaterLeftovers) old Google Updater versions sit in the system Library and need admin rights, so they are skipped."))
+        }
+        return parts.joined(separator: " ")
     }
 }

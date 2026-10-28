@@ -100,6 +100,13 @@ extension Int64 {
     }
 }
 
+extension UInt64 {
+    /// RAM sizes count in powers of 1024, as in Activity Monitor (an 18 GB Mac shows 18 GB).
+    var formattedMemory: String {
+        Int64(clamping: self).formatted(.byteCount(style: .memory).locale(AppSettings.shared.locale))
+    }
+}
+
 extension URL {
     /// Path with the home folder shortened to `~`.
     var abbreviatedPath: String {

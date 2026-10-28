@@ -180,7 +180,7 @@ private struct SpaceRow: View {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(item.size == nil ? AnyShapeStyle(Color.primary.opacity(0.1)) : AnyShapeStyle(LinearGradient.soft(colors)))
                 .frame(width: 12, height: 12)
-            Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
+            Image(nsImage: FileIcon.image(for: item.url, size: 20))
                 .resizable()
                 .frame(width: 20, height: 20)
             VStack(alignment: .leading, spacing: 3) {

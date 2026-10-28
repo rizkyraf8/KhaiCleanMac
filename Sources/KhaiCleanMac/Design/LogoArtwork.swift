@@ -51,6 +51,52 @@ enum LogoArtwork {
         }
     }
 
+    /// One-colour version of the logo for the menu bar, drawn on its own small grid so the
+    /// lines stay thick enough at 18 pt. It is a template image, so macOS tints it for light
+    /// mode, dark mode and the highlighted state.
+    static func menuBarImage() -> NSImage {
+        let image = NSImage(size: NSSize(width: 20, height: 18), flipped: false) { _ in
+            NSColor.black.setFill()
+
+            // Monitor: bezel with the screen cut out, plus the stand.
+            let bezel = roundRect(1, 4.5, 15, 11, 2.6)
+            bezel.append(roundRect(2.6, 6.1, 11.8, 7.8, 1.1))
+            bezel.windingRule = .evenOdd
+            bezel.fill()
+            roundRect(7.3, 2.6, 2.4, 2.2, 0.4).fill()
+            roundRect(5, 1.2, 7, 1.5, 0.75).fill()
+
+            // The still-dusty right side of the screen, lighter than the solid parts.
+            if let context = NSGraphicsContext.current {
+                context.saveGraphicsState()
+                roundRect(2.6, 6.1, 11.8, 7.8, 1.1).addClip()
+                NSColor.black.withAlphaComponent(0.38).setFill()
+                let dusty = NSBezierPath()
+                dusty.move(to: NSPoint(x: 11.9, y: 5))
+                dusty.line(to: NSPoint(x: 16, y: 5))
+                dusty.line(to: NSPoint(x: 16, y: 15))
+                dusty.line(to: NSPoint(x: 10.3, y: 15))
+                dusty.close()
+                dusty.fill()
+                context.restoreGraphicsState()
+            }
+
+            // Wiper: blade on the screen with the handle reaching out to the right.
+            NSColor.black.setFill()
+            rotated(at: NSPoint(x: 11.1, y: 10), degrees: -11) {
+                roundRect(-0.95, -4.4, 1.9, 8.8, 0.95).fill()
+                roundRect(0, -0.85, 7.6, 1.7, 0.85).fill()
+            }
+
+            // Sparkle on the freshly cleaned side.
+            star(center: NSPoint(x: 6.2, y: 10), radius: 2.7, pinch: 0.3).fill()
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "KhaiCleanMac"
+        return image
+    }
+
     /// White monitor body and stand; returns the screen area inside the bezel.
     private static func drawMonitor() -> NSBezierPath {
         frame.setFill()
@@ -116,9 +162,9 @@ enum LogoArtwork {
         NSBezierPath(roundedRect: NSRect(x: x, y: y, width: width, height: height), xRadius: radius, yRadius: radius)
     }
 
-    /// Four-pointed sparkle with softly pinched sides.
-    private static func star(center c: NSPoint, radius r: CGFloat) -> NSBezierPath {
-        let pinch = r * 0.12
+    /// Four-pointed sparkle with softly pinched sides; a larger `pinch` gives thicker arms.
+    private static func star(center c: NSPoint, radius r: CGFloat, pinch pinchRatio: CGFloat = 0.12) -> NSBezierPath {
+        let pinch = r * pinchRatio
         let path = NSBezierPath()
         path.move(to: NSPoint(x: c.x, y: c.y + r))
         path.curve(to: NSPoint(x: c.x + r, y: c.y), controlPoint1: NSPoint(x: c.x + pinch, y: c.y + pinch), controlPoint2: NSPoint(x: c.x + pinch, y: c.y + pinch))

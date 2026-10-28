@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum Module: String, CaseIterable, Identifiable {
-    case smartScan, largeFiles, duplicates, spaceLens, uninstaller
+    case smartScan, largeFiles, duplicates, developer, spaceLens, uninstaller, memory
 
     enum Section: String, CaseIterable {
         case clean, manage
@@ -18,8 +18,8 @@ enum Module: String, CaseIterable, Identifiable {
 
     var section: Section {
         switch self {
-        case .smartScan, .largeFiles, .duplicates: .clean
-        case .spaceLens, .uninstaller: .manage
+        case .smartScan, .largeFiles, .duplicates, .developer: .clean
+        case .spaceLens, .uninstaller, .memory: .manage
         }
     }
 
@@ -28,7 +28,9 @@ enum Module: String, CaseIterable, Identifiable {
         case .smartScan: "Smart Scan"
         case .largeFiles: L("File Besar", "Large Files")
         case .duplicates: L("Duplikat", "Duplicates")
+        case .developer: "Developer"
         case .spaceLens: "Space Lens"
+        case .memory: L("Memori", "Memory")
         case .uninstaller: "Uninstaller"
         }
     }
@@ -38,7 +40,9 @@ enum Module: String, CaseIterable, Identifiable {
         case .smartScan: L("Cache, log & sampah", "Caches, logs & junk")
         case .largeFiles: L("Yang makan tempat", "Space hogs")
         case .duplicates: L("File kembar", "Identical files")
+        case .developer: L("Sisa coding & build", "Coding leftovers")
         case .spaceLens: L("Peta isi disk", "Disk map")
+        case .memory: L("RAM & app terboros", "RAM & heavy apps")
         case .uninstaller: L("Hapus app sampai bersih", "Remove apps completely")
         }
     }
@@ -48,7 +52,9 @@ enum Module: String, CaseIterable, Identifiable {
         case .smartScan: L("Bersihkan cache, log, dan sisa file yang tidak terpakai.", "Clean up caches, logs and leftover files you no longer need.")
         case .largeFiles: L("Temukan file berukuran besar di folder pribadimu.", "Find big files in your home folder.")
         case .duplicates: L("Temukan file dengan isi yang persis sama.", "Find files with exactly the same content.")
+        case .developer: L("Bersihkan dependensi proyek lama, cache package manager, dan arsip Xcode.", "Clean up old project dependencies, package manager caches and Xcode archives.")
         case .spaceLens: L("Lihat folder mana yang paling banyak makan tempat.", "See which folders take up the most space.")
+        case .memory: L("Lihat tekanan memori dan app yang paling banyak memakai RAM.", "See memory pressure and the apps using the most RAM.")
         case .uninstaller: L("Hapus aplikasi beserta file sisa yang ditinggalkannya.", "Remove apps together with the files they leave behind.")
         }
     }
@@ -58,7 +64,9 @@ enum Module: String, CaseIterable, Identifiable {
         case .smartScan: "sparkles"
         case .largeFiles: "doc.text.magnifyingglass"
         case .duplicates: "doc.on.doc.fill"
+        case .developer: "chevron.left.forwardslash.chevron.right"
         case .spaceLens: "square.split.2x2.fill"
+        case .memory: "memorychip.fill"
         case .uninstaller: "xmark.bin.fill"
         }
     }
@@ -68,7 +76,9 @@ enum Module: String, CaseIterable, Identifiable {
         case .smartScan: Palette.mint
         case .largeFiles: Palette.peach
         case .duplicates: Palette.sky
+        case .developer: Palette.ocean
         case .spaceLens: Palette.candy
+        case .memory: Palette.leaf
         case .uninstaller: Palette.lavender
         }
     }
@@ -78,19 +88,27 @@ enum Module: String, CaseIterable, Identifiable {
 struct CleanItem: Identifiable, Hashable, Sendable {
     let url: URL
     let size: Int64
+    /// Shown instead of the file name, for items that stand for a group of files.
+    var title: String? = nil
+    /// Shown instead of the parent folder path.
+    var detail: String? = nil
+    /// When set, only these files inside `url` are removed, not `url` itself
+    /// (e.g. the stale entries of a cache folder that stays in use).
+    var members: [URL] = []
 
     var id: URL { url }
-    var name: String { url.lastPathComponent }
+    var name: String { title ?? url.lastPathComponent }
 }
 
 enum JunkKind: String, CaseIterable, Identifiable, Sendable {
-    case userCache, userLogs, developer, installers
+    case userCache, chrome, userLogs, developer, installers
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .userCache: L("Cache Aplikasi", "App Caches")
+        case .chrome: L("Cache Chrome", "Chrome Cache")
         case .userLogs: L("Log Aplikasi", "App Logs")
         case .developer: L("Sampah Xcode", "Xcode Junk")
         case .installers: L("Installer Lama", "Old Installers")
@@ -100,6 +118,7 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
     var subtitle: String {
         switch self {
         case .userCache: L("File sementara yang dibuat ulang otomatis oleh aplikasi.", "Temporary files that apps rebuild automatically.")
+        case .chrome: L("Hanya cache lama dan usang. Cache yang masih aktif tetap disimpan.", "Only old and obsolete cache. Cache still in use is kept.")
         case .userLogs: L("Catatan aktivitas lama yang jarang dibutuhkan.", "Old activity records you rarely need.")
         case .developer: L("DerivedData, Device Support, dan cache simulator.", "DerivedData, Device Support and simulator caches.")
         case .installers: L("File .dmg dan .pkg di folder Downloads.", ".dmg and .pkg files in your Downloads folder.")
@@ -109,6 +128,7 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
     var symbol: String {
         switch self {
         case .userCache: "internaldrive.fill"
+        case .chrome: "globe"
         case .userLogs: "doc.plaintext.fill"
         case .developer: "hammer.fill"
         case .installers: "shippingbox.fill"
@@ -118,6 +138,7 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
     var colors: [Color] {
         switch self {
         case .userCache: Palette.leaf
+        case .chrome: Palette.sky
         case .userLogs: Palette.sunny
         case .developer: Palette.ocean
         case .installers: Palette.candy

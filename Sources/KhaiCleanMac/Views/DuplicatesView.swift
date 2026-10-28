@@ -148,7 +148,7 @@ private struct DuplicateGroupCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: group.files[0].url.path))
+                Image(nsImage: FileIcon.image(for: group.files[0].url, size: 34))
                     .resizable()
                     .frame(width: 34, height: 34)
                 VStack(alignment: .leading, spacing: 2) {

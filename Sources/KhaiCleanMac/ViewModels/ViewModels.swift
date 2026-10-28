@@ -16,6 +16,9 @@ final class SmartScanModel {
     private(set) var hasSystemOwners = false
     /// Apps whose items were skipped at clean time because they had been opened after the scan.
     private(set) var skippedApps: [String] = []
+    /// Old Chrome versions waiting for a relaunch; shown as advice, never removed by the app.
+    private(set) var chromeUpdate: ChromeUpdateInfo?
+    private(set) var isChromeRunning = false
     var selected: Set<URL> = []
 
     var totalSize: Int64 { categories.reduce(0) { $0 + $1.totalSize } }
@@ -31,10 +34,16 @@ final class SmartScanModel {
         hasSystemOwners = false
         report = nil
         let matcher = RunningAppMatcher.current()
+        let scanner = JunkScanner(chromeMaxAgeDays: AppSettings.shared.chromeCacheAge.rawValue)
+        isChromeRunning = matcher.apps.contains { $0.bundleID == ChromeCacheScanner.bundleID }
+        chromeUpdate = nil
         var userApps = Set<String>()
         for kind in JunkKind.allCases {
             currentKind = kind
-            let items = await Task.detached(priority: .userInitiated) { JunkScanner().scan(kind) }.value
+            let items = await Task.detached(priority: .userInitiated) { scanner.scan(kind) }.value
+            if kind == .chrome {
+                chromeUpdate = await Task.detached(priority: .userInitiated) { ChromeCacheScanner.updateInfo() }.value
+            }
             for item in items {
                 guard let owner = matcher.owner(of: item, kind: kind) else { continue }
                 inUseOwners[item.url] = owner.name

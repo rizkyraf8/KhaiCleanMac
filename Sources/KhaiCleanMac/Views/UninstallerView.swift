@@ -220,7 +220,7 @@ private struct AppIcon: View {
     let size: CGFloat
 
     var body: some View {
-        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+        Image(nsImage: FileIcon.image(for: url, size: size))
             .resizable()
             .interpolation(.high)
             .frame(width: size, height: size)

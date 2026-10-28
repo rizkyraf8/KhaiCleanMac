@@ -17,11 +17,23 @@ enum Snapshot {
         }
 
         Task {
-            await render(SettingsView(), name: "settings", scheme: scheme, folder: folder,
-                         settle: 1, size: NSSize(width: 540, height: 560))
+            // The menu bar glyph, enlarged so its details can be checked.
+            await render(
+                HStack(spacing: 40) {
+                    Image(nsImage: LogoArtwork.menuBarImage()).resizable().frame(width: 160, height: 144)
+                    Image(nsImage: LogoArtwork.menuBarImage()).frame(width: 20, height: 18)
+                }
+                .padding(40)
+                .background(.background),
+                name: "menubar-icon", scheme: scheme, folder: folder, settle: 0.5, size: NSSize(width: 360, height: 240)
+            )
+            for tab in SettingsTab.allCases {
+                await render(SettingsView(tab: tab), name: "settings-\(tab.rawValue)", scheme: scheme, folder: folder,
+                             settle: 1, size: NSSize(width: 560, height: 600))
+            }
             for module in Module.allCases {
                 await render(ContentView(selection: module), name: module.rawValue, scheme: scheme, folder: folder,
-                             settle: module == .uninstaller || module == .spaceLens ? 8 : 1.5)
+                             settle: module == .uninstaller || module == .spaceLens ? 8 : (module == .memory ? 3 : 1.5))
             }
             await render(MenuBarView(monitor: SystemMonitor()).background(.background), name: "menubar", scheme: scheme, folder: folder,
                          settle: 4.5, size: NSSize(width: 320, height: 330))
@@ -43,13 +55,18 @@ enum Snapshot {
                 duplicates.scan()
                 while duplicates.phase == .scanning { try? await Task.sleep(for: .milliseconds(300)) }
                 await render(ContentView(selection: .duplicates, duplicates: duplicates), name: "duplicates-results", scheme: scheme, folder: folder, settle: 1.5)
+
+                let developer = DeveloperModel()
+                developer.scan()
+                while developer.phase == .scanning { try? await Task.sleep(for: .milliseconds(300)) }
+                await render(ContentView(selection: .developer, developer: developer), name: "developer-results", scheme: scheme, folder: folder, settle: 1.5)
             }
             NSApp.terminate(nil)
         }
     }
 
     private static func render(_ view: some View, name: String, scheme: NSAppearance.Name, folder: URL, settle: Double,
-                               size: NSSize = NSSize(width: 1120, height: 740)) async {
+                               size: NSSize = NSSize(width: 1120, height: 860)) async {
                 let window = NSWindow(
                     contentRect: NSRect(origin: .zero, size: size),
                     styleMask: [.titled, .fullSizeContentView],

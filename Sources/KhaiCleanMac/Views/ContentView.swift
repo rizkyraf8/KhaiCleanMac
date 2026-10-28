@@ -5,18 +5,22 @@ struct ContentView: View {
     @State private var smartScan: SmartScanModel
     @State private var largeFiles = LargeFilesModel()
     @State private var duplicates: DuplicatesModel
+    @State private var developer: DeveloperModel
     @State private var spaceLens = SpaceLensModel()
+    @State private var memory = MemoryModel()
     @State private var uninstaller: UninstallerModel
 
     init(
         selection: Module = .smartScan,
         smartScan: SmartScanModel = SmartScanModel(),
         duplicates: DuplicatesModel = DuplicatesModel(),
+        developer: DeveloperModel = DeveloperModel(),
         uninstaller: UninstallerModel = UninstallerModel()
     ) {
         _selection = State(initialValue: selection)
         _smartScan = State(initialValue: smartScan)
         _duplicates = State(initialValue: duplicates)
+        _developer = State(initialValue: developer)
         _uninstaller = State(initialValue: uninstaller)
     }
 
@@ -30,7 +34,9 @@ struct ContentView: View {
                 case .smartScan: SmartScanView(model: smartScan)
                 case .largeFiles: LargeFilesView(model: largeFiles)
                 case .duplicates: DuplicatesView(model: duplicates)
+                case .developer: DeveloperView(model: developer)
                 case .spaceLens: SpaceLensView(model: spaceLens)
+                case .memory: MemoryView(model: memory)
                 case .uninstaller: UninstallerView(model: uninstaller)
                 }
             }
@@ -42,7 +48,12 @@ struct ContentView: View {
             .id(selection)
         }
         .background(SoftBackground(colors: selection.colors))
-        .frame(minWidth: 1000, minHeight: 720)
+        .frame(minWidth: 1000, minHeight: 840)
+        // With "keep in menu bar" on, closing the window hides the Dock icon until it is reopened.
+        .onAppear { NSApp.setActivationPolicy(.regular) }
+        .onDisappear {
+            if AppSettings.shared.keepInMenuBar { NSApp.setActivationPolicy(.accessory) }
+        }
     }
 }
 

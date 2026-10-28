@@ -25,13 +25,16 @@
 
 | Module | What it does |
 |---|---|
-| **Smart Scan** | Finds app caches (`~/Library/Caches`), logs (`~/Library/Logs`), Xcode leftovers (DerivedData, Device Support, simulator caches) and old `.dmg`/`.pkg` installers in Downloads |
+| **Smart Scan** | Finds app caches (`~/Library/Caches`), logs (`~/Library/Logs`), Xcode leftovers (DerivedData, Device Support, simulator caches) and old `.dmg`/`.pkg` installers in Downloads. Chrome's cache is cleaned entry by entry: only old web cache and obsolete code cache go |
 | **Large Files** | Finds files above 50 MB, 100 MB, 500 MB or 1 GB in your home folder, with type filters and sorting |
 | **Duplicates** | Finds files with byte-identical content and keeps the oldest copy by default |
+| **Developer** | Finds old project dependencies (`node_modules`, `Pods`, `.build`, `target`) and Xcode archives. Package manager caches (Gradle, npm, Yarn, Cargo, Maven…) are cleaned entry by entry: only libraries unused for 30, 60 or 90 days go, so active projects keep building fast. Also lists Terminal commands for Homebrew, Docker, simulators and Go |
 | **Space Lens** | Shows a treemap of any folder (Home by default). Double-click to drill in, use the breadcrumb to go back |
 | **Uninstaller** | Removes apps from `/Applications` and `~/Applications` together with the files they leave behind (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents and more) |
-| **Menu bar** | Shows live CPU usage in the menu bar, plus a panel with CPU, memory, disk and battery |
-| **Settings** | Switch the language (Bahasa Indonesia or English) and the appearance (Match System, Light or Dark). Open it with ⌘, or from the bottom of the sidebar |
+| **Memory** | Shows memory pressure, a RAM breakdown and swap use, and lists the apps using the most RAM (helper processes included) with a Quit button. It can also release cached files with `purge`, which needs an administrator password |
+| **Menu bar** | Shows live CPU usage in the menu bar, plus a panel with CPU, memory, disk and battery. The app keeps running there after you close the window |
+| **Reminders** | Checks junk daily, weekly or monthly and sends a notification once it passes 1, 5 or 10 GB. It never removes anything on its own |
+| **Settings** | Language (Bahasa Indonesia or English), appearance (Match System, Light or Dark), open at login, menu bar and reminders. Open it with ⌘, or from the bottom of the sidebar |
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version. The current version is shown at the bottom of the sidebar and in Settings → About.
 
@@ -49,6 +52,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version. The current v
 - **Nothing is deleted permanently.** Every item goes to the Trash, so you can put it back until you empty the Trash.
 - **Nothing is removed without your approval.** Each module shows exactly what it found and asks you to confirm first.
 - **Open apps are protected.** Smart Scan locks the caches and logs of apps that are currently running and checks again right before cleaning.
+- **Chrome keeps its active cache.** Only web cache entries unused for longer than the limit you choose (7, 30 or 90 days) and code cache from an earlier Chrome version are removed, and only while Chrome is closed. Old Chrome versions inside Chrome.app are never touched: while an update waits for a relaunch, the "old" version is the one running, and Chrome removes it itself after relaunching.
 - **The Uninstaller skips Apple's built-in apps** and refuses to remove an app while it is running.
 - **Duplicates are handled carefully:**
   - Symlinks and hard links never count as copies.
@@ -124,7 +128,6 @@ The logo is drawn in code in `Design/LogoArtwork.swift`. The app icon and the si
 
 ## Roadmap
 
-- Keep running in the menu bar after the window closes, and launch at login
 - Login Items and LaunchAgents manager
 - Empty the Trash and clean system caches through a privileged helper
 - Developer ID signing and notarization for a downloadable DMG

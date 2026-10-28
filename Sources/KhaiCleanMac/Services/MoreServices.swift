@@ -70,26 +70,29 @@ struct DuplicateScanner: Sendable {
         var visited = 0
         // Hard links and paths through symlinks reach the same file; count each file once.
         var seenFiles = Set<NSObject>()
-        for case let url as URL in enumerator {
-            if Task.isCancelled { return [:] }
+        var cancelled = false
+        enumerator.forEachURL { url in
+            if Task.isCancelled { cancelled = true; return false }
             visited += 1
             if visited % 1_500 == 0 { progress(.collecting(visited)) }
-            guard let values = try? url.resourceValues(forKeys: Set(Self.keys)) else { continue }
+            guard let values = try? url.resourceValues(forKeys: Set(Self.keys)) else { return true }
             if values.isSymbolicLink == true {
                 enumerator.skipDescendants()
-                continue
+                return true
             }
             if values.isDirectory == true {
                 if url.standardizedFileURL.path == library || Self.isProtected(url) { enumerator.skipDescendants() }
-                continue
+                return true
             }
             guard values.isRegularFile == true,
-                  let size = values.fileSize.map(Int64.init), size >= minSize else { continue }
-            if let identity = values.fileResourceIdentifier as? NSObject, !seenFiles.insert(identity).inserted { continue }
+                  let size = values.fileSize.map(Int64.init), size >= minSize else { return true }
+            if let identity = values.fileResourceIdentifier as? NSObject, !seenFiles.insert(identity).inserted { return true }
             // Reading an iCloud file that isn't downloaded would pull it from the cloud.
-            if values.isUbiquitousItem == true, values.ubiquitousItemDownloadingStatus != .current { continue }
+            if values.isUbiquitousItem == true, values.ubiquitousItemDownloadingStatus != .current { return true }
             bySize[size, default: []].append((DuplicateFile(url: url, modified: values.contentModificationDate), size))
+            return true
         }
+        if cancelled { return [:] }
         progress(.collecting(visited))
         return bySize
     }
@@ -101,9 +104,13 @@ struct DuplicateScanner: Sendable {
         var remaining = limit ?? .max
         while remaining > 0 {
             if Task.isCancelled { return nil }
-            guard let chunk = try? handle.read(upToCount: min(1 << 20, remaining)), !chunk.isEmpty else { break }
-            hasher.update(data: chunk)
-            remaining -= chunk.count
+            let read = autoreleasepool { () -> Int in
+                guard let chunk = try? handle.read(upToCount: min(1 << 20, remaining)), !chunk.isEmpty else { return 0 }
+                hasher.update(data: chunk)
+                return chunk.count
+            }
+            guard read > 0 else { break }
+            remaining -= read
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
