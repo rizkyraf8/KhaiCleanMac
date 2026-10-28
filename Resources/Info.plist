@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>id</string>
+    <key>CFBundleDisplayName</key>
+    <string>KhaiCleanMac</string>
+    <key>CFBundleExecutable</key>
+    <string>KhaiCleanMac</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.khai.KhaiCleanMac</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>KhaiCleanMac</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>15.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Rizky Aditya Fahreza. Dirilis dengan lisensi PolyForm Noncommercial 1.0.0.</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>KhaiCleanMac memeriksa Desktop untuk menemukan file berukuran besar.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>KhaiCleanMac memeriksa Documents untuk menemukan file berukuran besar.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>KhaiCleanMac memeriksa Downloads untuk menemukan installer lama dan file besar.</string>
+</dict>
+</plist>

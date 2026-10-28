@@ -1,0 +1,32 @@
+# Build output
+.build/
+build/
+DerivedData/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+*.xcuserstate
+
+# Debug snapshots (they can contain real file names from your home folder)
+snapshots/
+
+# Secrets and signing material: never commit these
+.env
+.env.*
+*.p12
+*.pem
+*.key
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+AuthKey_*.p8
+
+# macOS and editors
+.DS_Store
+.vscode/
+.idea/
+*.swp
