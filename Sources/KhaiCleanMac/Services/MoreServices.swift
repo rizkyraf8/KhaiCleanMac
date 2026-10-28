@@ -30,8 +30,8 @@ struct DuplicateScanner: Sendable {
     }
 
     /// Groups files by size, then by a hash of the first 64 KB, then by a full SHA-256.
-    func scan(minSize: Int64, progress: @Sendable (Progress) -> Void) -> [DuplicateGroup] {
-        let bySize = collect(minSize: minSize, progress: progress)
+    func scan(minSize: Int64, root: URL = .homeDirectory, progress: @Sendable (Progress) -> Void) -> [DuplicateGroup] {
+        let bySize = collect(minSize: minSize, root: root, progress: progress)
         let candidates = bySize.values.filter { $0.count > 1 }
         let total = Double(candidates.reduce(0) { $0 + $1.count })
         var hashed = 0.0
@@ -58,8 +58,7 @@ struct DuplicateScanner: Sendable {
         return groups.sorted { $0.wasted > $1.wasted }
     }
 
-    private func collect(minSize: Int64, progress: (Progress) -> Void) -> [Int64: [(file: DuplicateFile, size: Int64)]] {
-        let home = URL.homeDirectory
+    private func collect(minSize: Int64, root home: URL, progress: (Progress) -> Void) -> [Int64: [(file: DuplicateFile, size: Int64)]] {
         let library = home.appending(path: "Library").standardizedFileURL.path
         var bySize: [Int64: [(file: DuplicateFile, size: Int64)]] = [:]
         guard let enumerator = FileManager.default.enumerator(

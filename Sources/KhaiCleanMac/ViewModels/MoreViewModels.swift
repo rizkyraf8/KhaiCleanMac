@@ -73,7 +73,7 @@ final class DuplicatesModel {
         let items = groups.flatMap { group in
             group.files.filter { selected.contains($0.url) }.map { CleanItem(url: $0.url, size: group.size) }
         }
-        let report = await Task.detached(priority: .userInitiated) { Trasher.moveToTrash(items) }.value
+        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
         let failed = Set(report.failed.map(\.url))
         let removed = selected.subtracting(failed)
         withAnimation(.snappy) {
@@ -95,6 +95,10 @@ final class SpaceLensModel {
     private(set) var path: [URL] = []
     private(set) var items: [SpaceItem] = []
     private(set) var isMeasuring = false
+    /// False while the folder's list of entries is still being read.
+    private(set) var hasListed = false
+    /// The entry being measured right now, shown in the progress bar.
+    private(set) var measuringName: String?
     var selectedID: URL?
     var toast: ToastMessage?
 
@@ -144,11 +148,14 @@ final class SpaceLensModel {
         guard let folder = current else { return }
         selectedID = nil
         isMeasuring = true
+        hasListed = false
+        measuringName = nil
         let cached = cache
         task = Task.detached(priority: .userInitiated) { [weak self] in
             let entries = SpaceScanner.entries(in: folder)
             await self?.show(entries, cached: cached, in: folder)
             for entry in entries where cached[entry.url] == nil {
+                await self?.setMeasuring(entry.name, in: folder)
                 let size = FileSizer.allocatedSize(of: entry.url)
                 // A cancelled measurement is partial, so it must not be cached.
                 if Task.isCancelled { return }
@@ -158,8 +165,14 @@ final class SpaceLensModel {
         }
     }
 
+    private func setMeasuring(_ name: String, in folder: URL) {
+        guard current == folder else { return }
+        measuringName = name
+    }
+
     private func show(_ entries: [SpaceItem], cached: [URL: Int64], in folder: URL) {
         guard current == folder else { return }
+        hasListed = true
         items = entries.map { entry in
             var entry = entry
             entry.size = cached[entry.url]
@@ -175,11 +188,14 @@ final class SpaceLensModel {
 
     private func finishMeasuring(in folder: URL) {
         guard current == folder else { return }
-        isMeasuring = false
+        withAnimation(.smooth) {
+            isMeasuring = false
+            measuringName = nil
+        }
     }
 
     func moveToTrash(_ item: SpaceItem) async {
-        let report = await Task.detached { Trasher.moveToTrash([CleanItem(url: item.url, size: item.size ?? 0)]) }.value
+        let report = await Task.detached { Trasher.remove([CleanItem(url: item.url, size: item.size ?? 0)]) }.value
         if report.failed.isEmpty {
             withAnimation(.snappy) { items.removeAll { $0.id == item.id } }
             cache[item.url] = nil

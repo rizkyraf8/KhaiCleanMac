@@ -3,6 +3,36 @@
 All notable changes to KhaiCleanMac are listed here.
 The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 
+## [0.4.0] - 2026-10-28
+
+### Added
+- **Welcome guide** on first launch:
+  - What the app promises: the Trash first, nothing without confirmation, open apps locked.
+  - Language choice.
+  - A step-by-step **Full Disk Access tutorial**: open the right Settings page, drag the app icon into the list, then check the switch. The status turns green on its own once access is granted. The guide can be opened again from Settings → About, the sidebar or Home.
+- **Home**: disk and memory at a glance, a one-click Smart Scan, Full Disk Access status and a card for every feature. The app now opens here.
+- **Login Items module**:
+  - Lists classic login items (read through System Events after macOS asks for permission) and your LaunchAgents. Agents can be turned off (reversible) or removed.
+  - System agents and daemons are shown read-only.
+  - Orphans whose program or app is gone are flagged.
+- **More to clean in Smart Scan:**
+  - Browser cache for Brave, Edge, Arc, Vivaldi, Firefox and Safari, besides Chrome, entry by entry and only while that browser is closed.
+  - Old downloads: unopened for 30, 90 or 180 days.
+  - iPhone/iPad backups and `.ipsw` update files.
+  - What's already in the Trash.
+  - None of these are preselected.
+- **Delete permanently** setting: off by default, and it asks for confirmation before turning on. Every confirmation, result and Home banner says when it's on.
+- **Automated tests** (`swift test`) for removal logic, using fake folders only. Also **GitHub Actions CI** that builds and tests every push.
+
+### Changed
+- Smart Scan's scanning screen shows an overall progress bar ("3 of 8 categories", junk found so far) and a four-column grid of categories with their status. Before, eight chips in one row squeezed their names into vertical text.
+- Space Lens has a full-width progress bar under the breadcrumb that follows a folder from reading, through "measuring item 11 of 83 (13%)" with the current item's name, to done.
+
+### Fixed
+- Headless Chrome leftovers were treated as part of Chrome, so they stayed locked while Chrome was open. Found by the new tests.
+- Two items with the same name cleaned in the same second could collide in the Trash staging folder.
+- Removal text in every module now follows the chosen removal mode, instead of always saying "Trash".
+
 ## [0.3.0] - 2026-10-28
 
 ### Added
@@ -58,6 +88,7 @@ First public release.
 - **Menu bar monitor:** shows CPU, memory, disk and battery.
 - Everything that gets removed goes to the Trash, and nothing is removed without confirmation.
 
+[0.4.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rizkyraf8/KhaiCleanMac/releases/tag/v0.1.0

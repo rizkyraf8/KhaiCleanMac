@@ -54,8 +54,8 @@ struct DuplicatesView: View {
             }
         }
         .toast($model.toast)
-        .alert(L("Pindahkan \(model.selected.count) salinan ke Trash?", "Move \(model.selected.count) \(model.selected.count == 1 ? "copy" : "copies") to the Trash?"), isPresented: $confirmTrash) {
-            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
+        .alert(Removal.question(L("\(model.selected.count) salinan", "\(model.selected.count) \(model.selected.count == 1 ? "copy" : "copies")")), isPresented: $confirmTrash) {
+            Button(Removal.actionTitle, role: .destructive) {
                 Task { await model.moveSelectedToTrash() }
             }
             Button(L("Batal", "Cancel"), role: .cancel) {}
@@ -122,7 +122,7 @@ struct DuplicatesView: View {
                 ActionBar(
                     caption: L("\(model.groups.count) grup · total bisa dihemat \(model.totalWasted.formattedBytes)", "\(model.groups.count) groups · \(model.totalWasted.formattedBytes) can be saved"),
                     value: model.selectedSize.formattedBytes,
-                    buttonTitle: L("Pindahkan ke Trash", "Move to Trash"),
+                    buttonTitle: Removal.actionTitle,
                     buttonSymbol: "trash",
                     colors: module.colors,
                     isDisabled: model.selected.isEmpty,

@@ -17,6 +17,7 @@ struct SpaceLensView: View {
             }
 
             breadcrumb
+            MeasureBar(model: model)
 
             HStack(alignment: .top, spacing: 18) {
                 treemapCard
@@ -30,16 +31,16 @@ struct SpaceLensView: View {
             if model.path.isEmpty { model.open(root: URL.homeDirectory) }
         }
         .alert(
-            L("Pindahkan \(pendingTrash?.name ?? "") ke Trash?", "Move \(pendingTrash?.name ?? "") to the Trash?"),
+            Removal.question(pendingTrash?.name ?? ""),
             isPresented: Binding(get: { pendingTrash != nil }, set: { if !$0 { pendingTrash = nil } }),
             presenting: pendingTrash
         ) { item in
-            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
+            Button(Removal.actionTitle, role: .destructive) {
                 Task { await model.moveToTrash(item) }
             }
             Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: { item in
-            Text(L("\((item.size ?? 0).formattedBytes) akan dipindahkan ke Trash dan masih bisa dikembalikan.", "\((item.size ?? 0).formattedBytes) will be moved to the Trash and can still be put back."))
+            Text("\((item.size ?? 0).formattedBytes). " + Removal.undoNote)
         }
     }
 
@@ -69,15 +70,6 @@ struct SpaceLensView: View {
                 .disabled(isLast)
             }
             Spacer()
-            if model.isMeasuring {
-                ProgressView().controlSize(.small)
-                Text(L("Mengukur \(model.measuredCount)/\(model.items.count)…", "Measuring \(model.measuredCount)/\(model.items.count)…"))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-            Text(model.knownTotal.formattedBytes)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .contentTransition(.numericText())
         }
     }
 
@@ -148,7 +140,7 @@ struct SpaceLensView: View {
                         Button {
                             pendingTrash = item
                         } label: {
-                            Label("Trash", systemImage: "trash")
+                            Label(Removal.isPermanent ? L("Hapus", "Delete") : "Trash", systemImage: Removal.actionSymbol)
                         }
                         .buttonStyle(GradientButtonStyle(colors: Module.spaceLens.colors))
                     }
@@ -340,5 +332,83 @@ enum Treemap {
         }
         if !row.isEmpty { place(row) }
         return result
+    }
+}
+
+/// A full-width bar under the breadcrumb that follows a folder from "reading" through
+/// "measuring item 12 of 40" to "done", so progress is visible the whole way.
+private struct MeasureBar: View {
+    let model: SpaceLensModel
+    private let colors = Module.spaceLens.colors
+
+    private var total: Int { model.items.count }
+    private var fraction: Double { total > 0 ? Double(model.measuredCount) / Double(total) : 0 }
+    private var folderName: String {
+        guard let url = model.current else { return "" }
+        return url == URL.homeDirectory ? "Home" : url.lastPathComponent
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            GradientIcon(symbol: model.isMeasuring ? "ruler.fill" : "checkmark", colors: model.isMeasuring ? colors : Palette.mint,
+                         size: 36, corner: 11)
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                    if let name = model.measuringName, model.isMeasuring {
+                        Text(L("sedang: \(name)", "now: \(name)"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    Spacer(minLength: 12)
+                    Text(counter)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+                if model.isMeasuring && !model.hasListed {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .tint(colors.last)
+                } else {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.primary.opacity(0.08))
+                            Capsule()
+                                .fill(LinearGradient(colors: model.isMeasuring ? colors : Palette.mint, startPoint: .leading, endPoint: .trailing))
+                                .frame(width: max(8, geo.size.width * (model.isMeasuring ? fraction : 1)))
+                        }
+                    }
+                    .frame(height: 8)
+                    .animation(.smooth, value: fraction)
+                }
+            }
+            Text(model.knownTotal.formattedBytes)
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .contentTransition(.numericText())
+                .frame(minWidth: 90, alignment: .trailing)
+        }
+        .softCard(padding: 14, radius: 18)
+    }
+
+    private var title: String {
+        if model.isMeasuring && !model.hasListed {
+            return L("Membaca isi \(folderName)…", "Reading \(folderName)…")
+        }
+        return model.isMeasuring
+            ? L("Mengukur \(folderName)", "Measuring \(folderName)")
+            : L("\(folderName) selesai diukur", "\(folderName) fully measured")
+    }
+
+    private var counter: String {
+        guard model.hasListed else { return "" }
+        return model.isMeasuring
+            ? L("\(model.measuredCount) dari \(total) item · \(Int(fraction * 100))%", "\(model.measuredCount) of \(total) items · \(Int(fraction * 100))%")
+            : L("\(total) item", "\(total) items")
     }
 }

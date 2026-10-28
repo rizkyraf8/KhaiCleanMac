@@ -8,10 +8,12 @@ struct ContentView: View {
     @State private var developer: DeveloperModel
     @State private var spaceLens = SpaceLensModel()
     @State private var memory = MemoryModel()
+    @State private var startup = StartupModel()
+    @Bindable private var router = AppRouter.shared
     @State private var uninstaller: UninstallerModel
 
     init(
-        selection: Module = .smartScan,
+        selection: Module = .home,
         smartScan: SmartScanModel = SmartScanModel(),
         duplicates: DuplicatesModel = DuplicatesModel(),
         developer: DeveloperModel = DeveloperModel(),
@@ -24,6 +26,10 @@ struct ContentView: View {
         _uninstaller = State(initialValue: uninstaller)
     }
 
+    private func open(_ module: Module) {
+        withAnimation(.snappy) { selection = module }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             SidebarView(selection: $selection)
@@ -31,11 +37,17 @@ struct ContentView: View {
 
             Group {
                 switch selection {
+                case .home:
+                    HomeView(smartScan: smartScan, onOpen: open) {
+                        open(.smartScan)
+                        Task { await smartScan.scan() }
+                    }
                 case .smartScan: SmartScanView(model: smartScan)
                 case .largeFiles: LargeFilesView(model: largeFiles)
                 case .duplicates: DuplicatesView(model: duplicates)
                 case .developer: DeveloperView(model: developer)
                 case .spaceLens: SpaceLensView(model: spaceLens)
+                case .startup: StartupView(model: startup)
                 case .memory: MemoryView(model: memory)
                 case .uninstaller: UninstallerView(model: uninstaller)
                 }
@@ -48,7 +60,16 @@ struct ContentView: View {
             .id(selection)
         }
         .background(SoftBackground(colors: selection.colors))
-        .frame(minWidth: 1000, minHeight: 840)
+        .frame(minWidth: 1000, minHeight: 760)
+        .sheet(item: $router.onboarding) { step in
+            OnboardingView(step: step) {
+                AppSettings.shared.hasCompletedOnboarding = true
+                router.onboarding = nil
+            }
+        }
+        .task {
+            if !AppSettings.shared.hasCompletedOnboarding && !AppInfo.isSnapshot { router.onboarding = .welcome }
+        }
         // With "keep in menu bar" on, closing the window hides the Dock icon until it is reopened.
         .onAppear { NSApp.setActivationPolicy(.regular) }
         .onDisappear {
@@ -77,24 +98,30 @@ struct SidebarView: View {
             .padding(.top, 46)
             .padding(.bottom, 14)
 
-            ForEach(Module.Section.allCases, id: \.self) { section in
-                Text(section.title)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 10)
-                    .padding(.top, 8)
-                    .padding(.bottom, 2)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Module.Section.allCases, id: \.self) { section in
+                        if !section.title.isEmpty {
+                            Text(section.title)
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 10)
+                                .padding(.top, 8)
+                                .padding(.bottom, 2)
+                        }
 
-                ForEach(Module.allCases.filter { $0.section == section }) { module in
-                    SidebarRow(module: module, isSelected: selection == module) {
-                        withAnimation(.snappy) { selection = module }
+                        ForEach(Module.allCases.filter { $0.section == section }) { module in
+                            SidebarRow(module: module, isSelected: selection == module) {
+                                withAnimation(.snappy) { selection = module }
+                            }
+                        }
                     }
                 }
             }
+            .scrollIndicators(.never)
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            DiskCard()
             AccessCard()
             SidebarFooter()
         }
@@ -148,40 +175,6 @@ private struct SidebarRow: View {
     }
 }
 
-private struct DiskCard: View {
-    @State private var info: DiskInfo?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("Macintosh HD", systemImage: "internaldrive")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                Spacer()
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.08))
-                    Capsule()
-                        .fill(LinearGradient(colors: Palette.logo, startPoint: .leading, endPoint: .trailing))
-                        .frame(width: geo.size.width * (info?.usedFraction ?? 0))
-                }
-            }
-            .frame(height: 7)
-            Text(info.map { L("\($0.available.formattedBytes) tersedia dari \($0.total.formattedBytes)", "\($0.available.formattedBytes) free of \($0.total.formattedBytes)") } ?? L("Membaca disk…", "Reading disk…"))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-        }
-        .softCard(padding: 12, radius: 16)
-        .task {
-            while !Task.isCancelled {
-                let current = await Task.detached { DiskInfo.current() }.value
-                withAnimation(.smooth) { info = current }
-                try? await Task.sleep(for: .seconds(10))
-            }
-        }
-    }
-}
-
 private struct SidebarFooter: View {
     @State private var isHovering = false
 
@@ -208,6 +201,7 @@ private struct SidebarFooter: View {
     }
 }
 
+
 private struct AccessCard: View {
     @State private var granted = Permissions.hasFullDiskAccess
     @State private var showStaleHint = false
@@ -230,7 +224,7 @@ private struct AccessCard: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 12) {
-                        Button(L("Buka Pengaturan", "Open Settings")) { Permissions.openFullDiskAccessSettings() }
+                        Button(L("Panduan", "Guide")) { AppRouter.shared.showOnboarding(at: .access) }
                         Button(L("Cek Lagi", "Check Again")) {
                             withAnimation(.snappy) {
                                 granted = Permissions.hasFullDiskAccess

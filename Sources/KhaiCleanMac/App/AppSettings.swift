@@ -64,6 +64,9 @@ final class AppSettings: @unchecked Sendable {
         static let reminderThreshold = "reminderThreshold"
         static let lastReminderCheck = "lastReminderCheck"
         static let chromeCacheAge = "chromeCacheAge"
+        static let deletesPermanently = "deletesPermanently"
+        static let downloadsAge = "downloadsAge"
+        static let hasCompletedOnboarding = "hasCompletedOnboarding"
         static let legacyMigrated = "legacyPreferencesMigrated"
 
         static let all = [language, appearance, keepInMenuBar, remindersEnabled,
@@ -107,6 +110,21 @@ final class AppSettings: @unchecked Sendable {
         didSet { save(chromeCacheAge.rawValue, forKey: Keys.chromeCacheAge) }
     }
 
+    var hasCompletedOnboarding: Bool {
+        didSet { save(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) }
+    }
+
+    /// How long a download may go unopened before Smart Scan lists it.
+    var downloadsAge: DownloadsAge {
+        didSet { save(downloadsAge.rawValue, forKey: Keys.downloadsAge) }
+    }
+
+    /// Off by default. When on, cleaning deletes files for good instead of using the Trash.
+    /// Settings only turns it on after the user confirms.
+    var deletesPermanently: Bool {
+        didSet { save(deletesPermanently, forKey: Keys.deletesPermanently) }
+    }
+
     /// Debug snapshots switch language without touching the user's saved choice.
     @ObservationIgnored var persists = true
 
@@ -123,6 +141,9 @@ final class AppSettings: @unchecked Sendable {
         reminderThreshold = ReminderThreshold(rawValue: Int64(defaults.integer(forKey: Keys.reminderThreshold))) ?? .gb5
         lastReminderCheck = defaults.object(forKey: Keys.lastReminderCheck) as? Date
         chromeCacheAge = ChromeCacheAge(rawValue: defaults.integer(forKey: Keys.chromeCacheAge)) ?? .days30
+        deletesPermanently = defaults.bool(forKey: Keys.deletesPermanently)
+        downloadsAge = DownloadsAge(rawValue: defaults.integer(forKey: Keys.downloadsAge)) ?? .days90
+        hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
     }
 
     private static func migrateLegacyPreferences(into defaults: UserDefaults) {
@@ -176,6 +197,15 @@ enum ChromeCacheAge: Int, CaseIterable, Identifiable, Sendable {
     case days7 = 7
     case days30 = 30
     case days90 = 90
+
+    var id: Int { rawValue }
+    var title: String { L("\(rawValue) hari", "\(rawValue) days") }
+}
+
+enum DownloadsAge: Int, CaseIterable, Identifiable, Sendable {
+    case days30 = 30
+    case days90 = 90
+    case days180 = 180
 
     var id: Int { rawValue }
     var title: String { L("\(rawValue) hari", "\(rawValue) days") }

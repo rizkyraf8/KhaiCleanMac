@@ -33,14 +33,25 @@ struct SmartScanView: View {
             }
         }
         .alert(L("Bersihkan \(model.selectedSize.formattedBytes)?", "Clean \(model.selectedSize.formattedBytes)?"), isPresented: $confirmClean) {
-            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
+            Button(Removal.actionTitle, role: .destructive) {
                 Task { await model.clean() }
             }
             Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: {
-            Text(L("Item dipindahkan ke Trash dan masih bisa dikembalikan sebelum Trash dikosongkan.\n\nCache dibuat ulang otomatis, jadi aplikasi terkait mungkin terasa sedikit lebih lambat saat pertama dibuka. Cache milik aplikasi yang sedang terbuka tidak ikut dibersihkan.",
-                   "Items go to the Trash and can be put back until you empty it.\n\nCaches are rebuilt automatically, so related apps may feel a little slower the first time they open. Caches of apps that are currently open are left alone."))
+            Text(confirmMessage)
         }
+    }
+
+    private var confirmMessage: String {
+        var text = Removal.isPermanent
+            ? L("Mode hapus permanen aktif: item langsung dihapus dan tidak bisa dikembalikan.", "Delete permanently is on: items are removed right away and can't be put back.")
+            : L("Item dipindahkan ke Trash dan masih bisa dikembalikan sebelum Trash dikosongkan.", "Items go to the Trash and can be put back until you empty it.")
+        if model.selectedTrashCount > 0 {
+            text += L("\n\n\(model.selectedTrashCount) item dari Trash dihapus permanen.", "\n\n\(model.selectedTrashCount) items from the Trash are deleted permanently.")
+        }
+        text += L("\n\nCache dibuat ulang otomatis, jadi aplikasi terkait mungkin terasa sedikit lebih lambat saat pertama dibuka. Cache milik aplikasi yang sedang terbuka tidak ikut dibersihkan.",
+                  "\n\nCaches are rebuilt automatically, so related apps may feel a little slower the first time they open. Caches of apps that are currently open are left alone.")
+        return text
     }
 
     // MARK: Phases
@@ -60,29 +71,24 @@ struct SmartScanView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 440)
             }
-            HStack(spacing: 10) {
-                ForEach(JunkKind.allCases) { kind in
-                    KindChip(kind: kind, status: .pending)
-                }
-            }
+            KindGrid { _ in .idle }
             Spacer()
         }
         .frame(maxWidth: .infinity)
     }
 
     private var scanningView: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: 24) {
             Spacer()
             ScanOrb(colors: module.colors, isActive: true, label: L("Memindai…", "Scanning…")) {}
-            Text(model.currentKind.map { L("Memeriksa \($0.title.lowercased())…", "Checking \($0.title.lowercased())…") } ?? L("Menyiapkan…", "Getting ready…"))
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-                .contentTransition(.opacity)
-            HStack(spacing: 10) {
-                ForEach(JunkKind.allCases) { kind in
-                    KindChip(kind: kind, status: status(of: kind))
-                }
-            }
+            ScanProgressBar(
+                title: model.currentKind.map { L("Memeriksa \($0.title.lowercased())…", "Checking \($0.title.lowercased())…") } ?? L("Menyiapkan…", "Getting ready…"),
+                done: model.categories.count,
+                total: JunkKind.allCases.count,
+                found: model.totalSize,
+                colors: module.colors
+            )
+            KindGrid { status(of: $0) }
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -117,6 +123,7 @@ struct SmartScanView: View {
                                 state: model.selectionState(of: category),
                                 selectedSize: model.selectedSize(in: category),
                                 inUseCount: model.inUseCount(in: category),
+                                needsAccess: category.kind.needsFullDiskAccess && !model.hasFullDiskAccess && category.items.isEmpty,
                                 onToggle: { model.toggle(category) },
                                 onDetails: { detailKind = category.kind }
                             )
@@ -191,7 +198,7 @@ struct SmartScanView: View {
         VStack(spacing: 20) {
             Spacer()
             ScanOrb(colors: module.colors, isActive: true, label: L("Membersihkan…", "Cleaning…"), symbol: "wind") {}
-            Text(L("Memindahkan item ke Trash…", "Moving items to the Trash…"))
+            Text(Removal.progressText)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
             Spacer()
@@ -208,8 +215,10 @@ struct SmartScanView: View {
             message: doneMessage(report)
         ) {
             HStack(spacing: 12) {
-                Button(L("Buka Trash", "Open Trash")) { Permissions.openTrash() }
-                    .buttonStyle(SoftButtonStyle())
+                if !report.permanent {
+                    Button(L("Buka Trash", "Open Trash")) { Permissions.openTrash() }
+                        .buttonStyle(SoftButtonStyle())
+                }
                 Button(L("Selesai", "Done")) { model.reset() }
                     .buttonStyle(GradientButtonStyle(colors: module.colors))
             }
@@ -217,8 +226,10 @@ struct SmartScanView: View {
     }
 
     private func doneMessage(_ report: CleanReport) -> String {
-        var text = L("\(report.movedCount) item dipindahkan ke Trash. Kosongkan Trash untuk benar-benar membebaskan ruang disk.",
-                     "\(report.movedCount) \(report.movedCount == 1 ? "item" : "items") moved to the Trash. Empty the Trash to actually free up disk space.")
+        var text = report.permanent
+            ? L("\(report.movedCount) item dihapus permanen.", "\(report.movedCount) \(report.movedCount == 1 ? "item" : "items") deleted permanently.")
+            : L("\(report.movedCount) item dipindahkan ke Trash. Kosongkan Trash untuk benar-benar membebaskan ruang disk.",
+                "\(report.movedCount) \(report.movedCount == 1 ? "item" : "items") moved to the Trash. Empty the Trash to actually free up disk space.")
         if !report.failed.isEmpty {
             text += L("\n\(report.failed.count) item dilewati karena sedang dipakai atau dilindungi sistem.",
                       "\n\(report.failed.count) skipped because they are in use or protected by the system.")
@@ -231,7 +242,7 @@ struct SmartScanView: View {
         return text
     }
 
-    private func status(of kind: JunkKind) -> KindChip.Status {
+    private func status(of kind: JunkKind) -> KindTile.Status {
         if let category = model.category(kind) { return .done(category.totalSize) }
         return model.currentKind == kind ? .active : .pending
     }
@@ -239,36 +250,121 @@ struct SmartScanView: View {
 
 // MARK: - Pieces
 
-private struct KindChip: View {
-    enum Status { case pending, active, done(Int64) }
+/// Overall scan progress: which category is being checked, how many are done, and what's found so far.
+private struct ScanProgressBar: View {
+    let title: String
+    let done: Int
+    let total: Int
+    let found: Int64
+    let colors: [Color]
+
+    private var fraction: Double { total > 0 ? Double(done) / Double(total) : 0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .contentTransition(.opacity)
+                Spacer(minLength: 16)
+                Text(L("\(done) dari \(total) kategori", "\(done) of \(total) categories"))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.08))
+                    Capsule()
+                        .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
+                        .frame(width: max(12, geo.size.width * fraction))
+                }
+            }
+            .frame(height: 10)
+            .animation(.smooth, value: fraction)
+            Text(found > 0
+                 ? L("\(found.formattedBytes) ditemukan sejauh ini", "\(found.formattedBytes) found so far")
+                 : L("Belum ada yang ditemukan", "Nothing found yet"))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+        }
+        .softCard(padding: 18, radius: 18)
+        .frame(maxWidth: 620)
+    }
+}
+
+/// Every Smart Scan category as a tile, four per row so long names never wrap letter by letter.
+private struct KindGrid: View {
+    let status: (JunkKind) -> KindTile.Status
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
+            ForEach(JunkKind.allCases) { kind in
+                KindTile(kind: kind, status: status(kind))
+            }
+        }
+        .frame(maxWidth: 860)
+    }
+}
+
+private struct KindTile: View {
+    enum Status { case idle, pending, active, done(Int64) }
     let kind: JunkKind
     let status: Status
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        HStack(spacing: 8) {
-            GradientIcon(symbol: kind.symbol, colors: kind.colors, size: 26, corner: 8)
-            Text(kind.title)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+        HStack(spacing: 10) {
+            GradientIcon(symbol: kind.symbol, colors: kind.colors, size: 32, corner: 10)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(kind.title)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Text(caption)
+                    .font(.system(size: 11, weight: isDone ? .bold : .regular, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
             switch status {
-            case .pending:
-                EmptyView()
             case .active:
                 ProgressView().controlSize(.small)
-            case .done(let size):
-                Text(size.formattedBytes)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
+            case .done:
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(LinearGradient.soft(kind.colors))
+            case .idle, .pending:
+                EmptyView()
             }
         }
-        .padding(.leading, 6)
-        .padding(.trailing, 12)
-        .padding(.vertical, 6)
-        .background(Capsule().fill(scheme == .dark ? Color.white.opacity(0.07) : Color.white.opacity(0.8)))
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(scheme == .dark ? Color.white.opacity(0.07) : Color.white.opacity(0.82))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(LinearGradient.soft(kind.colors), lineWidth: isActive ? 2 : 0)
+        )
         .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
+        .opacity(isPending ? 0.55 : 1)
+        .animation(.snappy, value: caption)
     }
+
+    private var caption: String {
+        switch status {
+        case .idle: L("Akan diperiksa", "Will be checked")
+        case .pending: L("Menunggu", "Waiting")
+        case .active: L("Memeriksa…", "Checking…")
+        case .done(let size): size > 0 ? size.formattedBytes : L("Bersih", "Clean")
+        }
+    }
+
+    private var isActive: Bool { if case .active = status { true } else { false } }
+    private var isPending: Bool { if case .pending = status { true } else { false } }
+    private var isDone: Bool { if case .done = status { true } else { false } }
 }
 
 private struct CategoryCard: View {
@@ -276,6 +372,7 @@ private struct CategoryCard: View {
     let state: SelectionState
     let selectedSize: Int64
     let inUseCount: Int
+    var needsAccess = false
     let onToggle: () -> Void
     let onDetails: () -> Void
 
@@ -299,6 +396,11 @@ private struct CategoryCard: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .lineLimit(2, reservesSpace: true)
+                if needsAccess {
+                    Label(L("Butuh Akses Disk Penuh untuk dibaca", "Needs Full Disk Access to read"), systemImage: "lock.shield")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Palette.peach[1])
+                }
             }
             HStack(alignment: .lastTextBaseline, spacing: 8) {
                 Text(category.totalSize.formattedBytes)
@@ -481,7 +583,7 @@ private struct ChromeUpdateNotice: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            GradientIcon(symbol: "arrow.clockwise", colors: JunkKind.chrome.colors, size: 36, corner: 11)
+            GradientIcon(symbol: "arrow.clockwise", colors: JunkKind.browsers.colors, size: 36, corner: 11)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))

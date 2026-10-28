@@ -139,7 +139,7 @@ final class DeveloperModel {
                              title: L("\(item.title) (tidak dipakai)", "\(item.title) (unused)"),
                              members: stale.map(\.url))
         }
-        let report = await Task.detached(priority: .userInitiated) { Trasher.moveToTrash(trashItems) }.value
+        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(trashItems) }.value
         let failed = Set(report.failed.map(\.url))
 
         withAnimation(.snappy) {

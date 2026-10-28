@@ -25,16 +25,19 @@
 
 | Module | What it does |
 |---|---|
-| **Smart Scan** | Finds app caches (`~/Library/Caches`), logs (`~/Library/Logs`), Xcode leftovers (DerivedData, Device Support, simulator caches) and old `.dmg`/`.pkg` installers in Downloads. Chrome's cache is cleaned entry by entry: only old web cache and obsolete code cache go |
+| **Home** | The starting point: disk and memory at a glance, a one-click Smart Scan, Full Disk Access status and a card for every feature |
+| **Smart Scan** | Finds app caches (`~/Library/Caches`), logs (`~/Library/Logs`), Xcode leftovers (DerivedData, Device Support, simulator caches), old `.dmg`/`.pkg` installers, old downloads, iPhone/iPad backups and `.ipsw` files, and what's already in the Trash. Browser caches (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) are cleaned entry by entry: only old web cache and obsolete code cache go |
 | **Large Files** | Finds files above 50 MB, 100 MB, 500 MB or 1 GB in your home folder, with type filters and sorting |
 | **Duplicates** | Finds files with byte-identical content and keeps the oldest copy by default |
 | **Developer** | Finds old project dependencies (`node_modules`, `Pods`, `.build`, `target`) and Xcode archives. Package manager caches (Gradle, npm, Yarn, Cargo, Maven…) are cleaned entry by entry: only libraries unused for 30, 60 or 90 days go, so active projects keep building fast. Also lists Terminal commands for Homebrew, Docker, simulators and Go |
 | **Space Lens** | Shows a treemap of any folder (Home by default). Double-click to drill in, use the breadcrumb to go back |
 | **Uninstaller** | Removes apps from `/Applications` and `~/Applications` together with the files they leave behind (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents and more) |
+| **Login Items** | Lists login items, your LaunchAgents (turn them off or remove them) and system agents and daemons (read-only), and flags orphans whose app is gone |
 | **Memory** | Shows memory pressure, a RAM breakdown and swap use, and lists the apps using the most RAM (helper processes included) with a Quit button. It can also release cached files with `purge`, which needs an administrator password |
 | **Menu bar** | Shows live CPU usage in the menu bar, plus a panel with CPU, memory, disk and battery. The app keeps running there after you close the window |
 | **Reminders** | Checks junk daily, weekly or monthly and sends a notification once it passes 1, 5 or 10 GB. It never removes anything on its own |
-| **Settings** | Language (Bahasa Indonesia or English), appearance (Match System, Light or Dark), open at login, menu bar and reminders. Open it with ⌘, or from the bottom of the sidebar |
+| **Settings** | Language (Bahasa Indonesia or English), appearance (Match System, Light or Dark), open at login, menu bar, reminders, cache and download age limits, and an opt-in "delete permanently" mode. Open it with ⌘, or from the bottom of the sidebar |
+| **Welcome guide** | Shown on first launch: what the app promises, and a step-by-step Full Disk Access tutorial that turns green on its own once access is granted. Open it again from Settings → About |
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version. The current version is shown at the bottom of the sidebar and in Settings → About.
 
@@ -49,11 +52,13 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version. The current v
 
 ## Safety first
 
-- **Nothing is deleted permanently.** Every item goes to the Trash, so you can put it back until you empty the Trash.
+- **The Trash is the default.** Everything cleaned goes to the Trash, so you can put it back until you empty it. Deleting permanently is an opt-in setting that has to be confirmed before it turns on, and every confirmation then says so. Items already in the Trash can only be deleted permanently.
 - **Nothing is removed without your approval.** Each module shows exactly what it found and asks you to confirm first.
 - **Open apps are protected.** Smart Scan locks the caches and logs of apps that are currently running and checks again right before cleaning.
-- **Chrome keeps its active cache.** Only web cache entries unused for longer than the limit you choose (7, 30 or 90 days) and code cache from an earlier Chrome version are removed, and only while Chrome is closed. Old Chrome versions inside Chrome.app are never touched: while an update waits for a relaunch, the "old" version is the one running, and Chrome removes it itself after relaunching.
+- **Browsers keep their active cache.** Only web cache entries unused for longer than the limit you choose (7, 30 or 90 days) and code cache from an earlier browser version are removed, and only while that browser is closed. Old Chrome versions inside Chrome.app are never touched: while an update waits for a relaunch, the "old" version is the one running, and Chrome removes it itself after relaunching.
 - **The Uninstaller skips Apple's built-in apps** and refuses to remove an app while it is running.
+- **Login Items only edits what's yours.** Turning an agent off is reversible. System agents and daemons are shown but never changed.
+- **Personal files are never preselected.** Old downloads, device backups, installers and the Trash stay unselected until you pick them.
 - **Duplicates are handled carefully:**
   - Symlinks and hard links never count as copies.
   - Project and bundle folders (`node_modules`, `Pods`, `build`, `vendor`, `.app`, `.framework`, …) are skipped.
@@ -108,6 +113,14 @@ swift build && .build/debug/KhaiCleanMac --snapshot ./snapshots [--dark] [--resu
 
 `--results` also runs the scans, which only read files, so you can see the results screens. Those screens show real file names from your home folder, so review them before sharing.
 
+### Tests
+
+```bash
+swift test
+```
+
+The tests build fake folders in a temporary directory and never touch your files or the real Trash. They cover what gets picked for removal (browser cache entries and their age, code cache from older versions, duplicates versus links, vendor folders, running-app locks, orphaned agents) and how removal works (batch Trash folders, rollback when the Trash refuses, permanent mode). GitHub Actions runs them on every push.
+
 ## Project structure
 
 ```
@@ -128,13 +141,12 @@ The logo is drawn in code in `Design/LogoArtwork.swift`. The app icon and the si
 
 ## Roadmap
 
-- Login Items and LaunchAgents manager
-- Empty the Trash and clean system caches through a privileged helper
+- Clean system caches, system logs and orphaned system agents through a privileged helper
 - Developer ID signing and notarization for a downloadable DMG
 
 ## Contributing
 
-Issues and pull requests are welcome. Please keep the safety rules above intact. Anything that removes files has to go to the Trash and has to be confirmed by the user.
+Issues and pull requests are welcome. Please keep the safety rules above intact. Anything that removes files has to go through `Trasher`, so the Trash stays the default and the permanent-delete setting is respected, and it has to be confirmed by the user. Please add tests for new removal logic.
 
 ## License
 

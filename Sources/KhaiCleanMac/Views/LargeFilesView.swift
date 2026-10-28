@@ -54,13 +54,13 @@ struct LargeFilesView: View {
             }
         }
         .toast($model.toast)
-        .alert(L("Pindahkan \(model.selected.count) file ke Trash?", "Move \(model.selected.count) \(model.selected.count == 1 ? "file" : "files") to the Trash?"), isPresented: $confirmTrash) {
-            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
+        .alert(Removal.question(L("\(model.selected.count) file", "\(model.selected.count) \(model.selected.count == 1 ? "file" : "files")")), isPresented: $confirmTrash) {
+            Button(Removal.actionTitle, role: .destructive) {
                 Task { await model.moveSelectedToTrash() }
             }
             Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: {
-            Text(L("Total \(model.selectedSize.formattedBytes). File masih bisa dikembalikan dari Trash.", "Total \(model.selectedSize.formattedBytes). Files can still be put back from the Trash."))
+            Text(L("Total \(model.selectedSize.formattedBytes). ", "Total \(model.selectedSize.formattedBytes). ") + Removal.undoNote)
         }
     }
 
@@ -138,7 +138,7 @@ struct LargeFilesView: View {
                     caption: L("\(model.selected.count) dari \(model.files.count) file dipilih · total \(model.totalSize.formattedBytes)",
                                 "\(model.selected.count) of \(model.files.count) files selected · \(model.totalSize.formattedBytes) total"),
                     value: model.selectedSize.formattedBytes,
-                    buttonTitle: L("Pindahkan ke Trash", "Move to Trash"),
+                    buttonTitle: Removal.actionTitle,
                     buttonSymbol: "trash",
                     colors: module.colors,
                     isDisabled: model.selected.isEmpty

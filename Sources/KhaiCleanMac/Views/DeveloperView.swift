@@ -56,9 +56,9 @@ struct DeveloperView: View {
             }
         }
         .toast($model.toast)
-        .alert(L("Pindahkan \(model.selected.count) item ke Trash?", "Move \(model.selected.count) \(model.selected.count == 1 ? "item" : "items") to the Trash?"),
+        .alert(Removal.question(L("\(model.selected.count) item", "\(model.selected.count) \(model.selected.count == 1 ? "item" : "items")")),
                isPresented: $confirmTrash) {
-            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
+            Button(Removal.actionTitle, role: .destructive) {
                 Task { await model.moveSelectedToTrash() }
             }
             Button(L("Batal", "Cancel"), role: .cancel) {}
@@ -121,7 +121,7 @@ struct DeveloperView: View {
                     caption: L("\(model.selected.count) item dipilih · bisa dibersihkan \(model.totalRemovable.formattedBytes)",
                                "\(model.selected.count) selected · \(model.totalRemovable.formattedBytes) can be cleaned"),
                     value: model.selectedSize.formattedBytes,
-                    buttonTitle: L("Pindahkan ke Trash", "Move to Trash"),
+                    buttonTitle: Removal.actionTitle,
                     buttonSymbol: "trash",
                     colors: module.colors,
                     isDisabled: model.selected.isEmpty

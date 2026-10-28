@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "KhaiCleanMac",
             path: "Sources/KhaiCleanMac"
-        )
+        ),
+        .testTarget(
+            name: "KhaiCleanMacTests",
+            dependencies: ["KhaiCleanMac"],
+            path: "Tests/KhaiCleanMacTests"
+        ),
     ]
 )

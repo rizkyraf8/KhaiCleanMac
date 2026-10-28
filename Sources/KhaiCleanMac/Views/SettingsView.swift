@@ -45,16 +45,19 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 22) {
             header
             TabBar(selection: $tab)
-            Group {
-                switch tab {
-                case .general: GeneralTab()
-                case .appearance: AppearanceTab()
-                case .reminders: RemindersTab()
-                case .about: AboutTab()
+            ScrollView {
+                Group {
+                    switch tab {
+                    case .general: GeneralTab()
+                    case .appearance: AppearanceTab()
+                    case .reminders: RemindersTab()
+                    case .about: AboutTab()
+                    }
                 }
+                .padding(.bottom, 8)
+                .transition(.opacity)
             }
-            .transition(.opacity)
-            Spacer(minLength: 0)
+            .scrollIndicators(.never)
         }
         .padding(26)
         .frame(width: 560, height: 600, alignment: .top)
@@ -83,6 +86,7 @@ private struct GeneralTab: View {
     @Bindable private var settings = AppSettings.shared
     @State private var loginStatus = LoginItem.status
     @State private var loginError: String?
+    @State private var confirmPermanent = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -133,27 +137,77 @@ private struct GeneralTab: View {
             }
 
             SettingsSection(title: "Smart Scan", symbol: "sparkles") {
-                HStack(spacing: 12) {
-                    GradientIcon(symbol: "globe", colors: Palette.sky, size: 34, corner: 10)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L("Batas umur cache web Chrome", "Chrome web cache age limit"))
-                            .font(.system(size: 13, weight: .semibold))
-                        Text(L("Cache yang lebih baru tetap disimpan agar situs tetap cepat dibuka.", "Newer cache is kept so sites still load fast."))
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        GradientIcon(symbol: "globe", colors: Palette.sky, size: 34, corner: 10)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("Batas umur cache web browser", "Browser web cache age limit"))
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(L("Cache yang lebih baru tetap disimpan agar situs tetap cepat dibuka.", "Newer cache is kept so sites still load fast."))
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 12)
+                        Picker("", selection: $settings.chromeCacheAge) {
+                            ForEach(ChromeCacheAge.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
                     }
-                    Spacer(minLength: 12)
-                    Picker("", selection: $settings.chromeCacheAge) {
-                        ForEach(ChromeCacheAge.allCases) { Text($0.title).tag($0) }
+                    .padding(.vertical, 8)
+                    Divider()
+                    HStack(spacing: 12) {
+                        GradientIcon(symbol: "arrow.down.circle.fill", colors: Palette.peach, size: 34, corner: 10)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("Downloads dianggap lama setelah", "Downloads count as old after"))
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(L("Dihitung dari terakhir dibuka, diubah, atau diunduh. Tidak pernah dipilih otomatis.", "Counted from the last open, change or download. Never preselected."))
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 12)
+                        Picker("", selection: $settings.downloadsAge) {
+                            ForEach(DownloadsAge.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
+                    .padding(.vertical, 8)
                 }
-                .padding(.vertical, 8)
                 .softCard(padding: 12, radius: 16)
             }
+
+            SettingsSection(title: L("Penghapusan", "Removal"), symbol: "trash") {
+                VStack(alignment: .leading, spacing: 0) {
+                    ToggleRow(
+                        symbol: "trash.slash.fill", colors: Palette.berry,
+                        title: L("Hapus permanen, tanpa Trash", "Delete permanently, skip the Trash"),
+                        caption: settings.deletesPermanently
+                            ? L("Aktif: file yang dibersihkan langsung hilang dan tidak bisa dikembalikan.", "On: cleaned files are gone right away and can't be put back.")
+                            : L("Mati (disarankan): semua yang dibersihkan masuk Trash dulu, jadi masih bisa dikembalikan.", "Off (recommended): everything cleaned goes to the Trash first, so it can be put back."),
+                        isOn: Binding(
+                            get: { settings.deletesPermanently },
+                            set: { turnOn in
+                                if turnOn { confirmPermanent = true } else { settings.deletesPermanently = false }
+                            }
+                        )
+                    )
+                }
+                .softCard(padding: 12, radius: 16)
+            }
+        }
+        .alert(L("Aktifkan hapus permanen?", "Turn on permanent deletion?"), isPresented: $confirmPermanent) {
+            Button(L("Ya, hapus permanen", "Yes, delete permanently"), role: .destructive) {
+                settings.deletesPermanently = true
+            }
+            Button(L("Tetap pakai Trash", "Keep using the Trash"), role: .cancel) {}
+        } message: {
+            Text(L("Semua modul akan menghapus file secara langsung, tanpa lewat Trash. File yang terhapus tidak bisa dikembalikan, termasuk kalau ada yang salah pilih. Kamu tetap diminta konfirmasi setiap kali membersihkan.",
+                   "Every module will delete files directly instead of using the Trash. Deleted files can't be put back, even if something was picked by mistake. You'll still confirm each cleanup."))
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             loginStatus = LoginItem.status
@@ -331,6 +385,17 @@ private struct AboutTab: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Link("rizkyraf8/KhaiCleanMac", destination: AppInfo.repository)
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .font(.system(size: 12))
+                .padding(.vertical, 9)
+                Divider()
+                HStack {
+                    Text(L("Panduan awal", "Welcome guide"))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button(L("Tampilkan lagi", "Show again")) { AppRouter.shared.showOnboarding() }
+                        .buttonStyle(.link)
                         .font(.system(size: 12, weight: .semibold))
                 }
                 .font(.system(size: 12))

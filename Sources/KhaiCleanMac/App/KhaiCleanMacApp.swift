@@ -10,6 +10,9 @@ enum AppInfo {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
     }
 
+    /// Debug snapshots render windows offscreen; they must not pop up the first-run guide.
+    static var isSnapshot: Bool { CommandLine.arguments.contains("--snapshot") }
+
     static var build: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
     }

@@ -19,9 +19,12 @@ final class SmartScanModel {
     /// Old Chrome versions waiting for a relaunch; shown as advice, never removed by the app.
     private(set) var chromeUpdate: ChromeUpdateInfo?
     private(set) var isChromeRunning = false
+    private(set) var hasFullDiskAccess = true
     var selected: Set<URL> = []
 
     var totalSize: Int64 { categories.reduce(0) { $0 + $1.totalSize } }
+    /// Selected items that are already in the Trash; cleaning deletes them for good.
+    var selectedTrashCount: Int { category(.trash)?.items.count { selected.contains($0.url) } ?? 0 }
     var itemCount: Int { categories.reduce(0) { $0 + $1.items.count } }
     var selectedSize: Int64 { categories.reduce(0) { $0 + selectedSize(in: $1) } }
 
@@ -34,15 +37,17 @@ final class SmartScanModel {
         hasSystemOwners = false
         report = nil
         let matcher = RunningAppMatcher.current()
-        let scanner = JunkScanner(chromeMaxAgeDays: AppSettings.shared.chromeCacheAge.rawValue)
-        isChromeRunning = matcher.apps.contains { $0.bundleID == ChromeCacheScanner.bundleID }
+        let scanner = JunkScanner(chromeMaxAgeDays: AppSettings.shared.chromeCacheAge.rawValue,
+                                  downloadsMaxAgeDays: AppSettings.shared.downloadsAge.rawValue)
+        isChromeRunning = matcher.apps.contains { Browser.chrome.bundleIDs.contains($0.bundleID) }
+        hasFullDiskAccess = Permissions.hasFullDiskAccess
         chromeUpdate = nil
         var userApps = Set<String>()
         for kind in JunkKind.allCases {
             currentKind = kind
             let items = await Task.detached(priority: .userInitiated) { scanner.scan(kind) }.value
-            if kind == .chrome {
-                chromeUpdate = await Task.detached(priority: .userInitiated) { ChromeCacheScanner.updateInfo() }.value
+            if kind == .browsers {
+                chromeUpdate = await Task.detached(priority: .userInitiated) { BrowserCacheScanner(maxAgeDays: 30).chromeUpdateInfo() }.value
             }
             for item in items {
                 guard let owner = matcher.owner(of: item, kind: kind) else { continue }
@@ -73,7 +78,7 @@ final class SmartScanModel {
         }
         skippedApps = skipped.sorted()
         withAnimation(.smooth) { phase = .cleaning }
-        report = await Task.detached(priority: .userInitiated) { Trasher.moveToTrash(items) }.value
+        report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
         withAnimation(.smooth) { phase = .done }
     }
 
@@ -202,7 +207,7 @@ final class LargeFilesModel {
 
     func moveSelectedToTrash() async {
         let items = selectedFiles.map(\.item)
-        let report = await Task.detached(priority: .userInitiated) { Trasher.moveToTrash(items) }.value
+        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
         let failed = Set(report.failed.map(\.url))
         withAnimation(.snappy) {
             files.removeAll { selected.contains($0.url) && !failed.contains($0.url) }
@@ -290,7 +295,7 @@ final class UninstallerModel {
         isUninstalling = true
         let appItem = CleanItem(url: app.url, size: sizes[app.url] ?? 0)
         let items = [appItem] + leftovers.filter { selectedLeftovers.contains($0.url) }
-        let report = await Task.detached(priority: .userInitiated) { Trasher.moveToTrash(items) }.value
+        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
         isUninstalling = false
 
         if report.failed.contains(where: { $0.url == app.url }) {
@@ -304,14 +309,19 @@ final class UninstallerModel {
             leftovers = []
             selectedLeftovers = []
         }
-        toast = ToastMessage(text: L("\(app.name) dihapus · \(report.movedSize.formattedBytes) dipindahkan ke Trash", "\(app.name) removed · \(report.movedSize.formattedBytes) moved to the Trash"), colors: Module.uninstaller.colors)
+        toast = ToastMessage(text: report.permanent
+                ? L("\(app.name) dihapus permanen · \(report.movedSize.formattedBytes)", "\(app.name) deleted permanently · \(report.movedSize.formattedBytes)")
+                : L("\(app.name) dihapus · \(report.movedSize.formattedBytes) dipindahkan ke Trash", "\(app.name) removed · \(report.movedSize.formattedBytes) moved to the Trash"), colors: Module.uninstaller.colors)
     }
 }
 
 extension CleanReport {
     var summaryText: String {
-        var text = L("\(movedCount) item (\(movedSize.formattedBytes)) dipindahkan ke Trash",
-                     "\(movedCount) \(movedCount == 1 ? "item" : "items") (\(movedSize.formattedBytes)) moved to the Trash")
+        var text = permanent
+            ? L("\(movedCount) item (\(movedSize.formattedBytes)) dihapus permanen",
+                "\(movedCount) \(movedCount == 1 ? "item" : "items") (\(movedSize.formattedBytes)) deleted permanently")
+            : L("\(movedCount) item (\(movedSize.formattedBytes)) dipindahkan ke Trash",
+                "\(movedCount) \(movedCount == 1 ? "item" : "items") (\(movedSize.formattedBytes)) moved to the Trash")
         if !failed.isEmpty { text += L(" · \(failed.count) gagal", " · \(failed.count) failed") }
         return text
     }

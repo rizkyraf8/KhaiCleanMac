@@ -73,7 +73,7 @@ final class ReminderService: NSObject, UNUserNotificationCenterDelegate {
         let chromeMaxAgeDays = AppSettings.shared.chromeCacheAge.rawValue
         let total = await Task.detached(priority: .utility) {
             let scanner = JunkScanner(chromeMaxAgeDays: chromeMaxAgeDays)
-            return [JunkKind.userCache, .chrome, .userLogs, .developer].reduce(Int64(0)) { sum, kind in
+            return [JunkKind.userCache, .browsers, .userLogs, .developer].reduce(Int64(0)) { sum, kind in
                 sum + scanner.scan(kind).reduce(0) { $0 + $1.size }
             }
         }.value

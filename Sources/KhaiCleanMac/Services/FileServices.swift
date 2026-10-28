@@ -44,17 +44,41 @@ enum FileSizer {
 }
 
 enum Trasher {
-    /// Moves items to the Trash (never deletes permanently), so everything can be put back.
+    typealias TrashAction = @Sendable (URL) throws -> Void
+
+    static let systemTrash: TrashAction = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }
+    static var defaultStagingRoot: URL {
+        URL.homeDirectory.appending(path: "Library/Caches/\(AppInfo.bundleID)/Trash staging")
+    }
+
+    /// Removes items the way the user chose in Settings: to the Trash (the default) or for good.
+    static func remove(_ items: [CleanItem]) -> CleanReport {
+        remove(items, permanently: AppSettings.shared.deletesPermanently)
+    }
+
+    /// Always uses the Trash, whatever the setting.
     static func moveToTrash(_ items: [CleanItem]) -> CleanReport {
-        var report = CleanReport()
+        remove(items, permanently: false)
+    }
+
+    /// `stagingRoot` and `trash` exist so tests can run without touching the real Trash.
+    static func remove(
+        _ items: [CleanItem],
+        permanently: Bool,
+        stagingRoot: URL = defaultStagingRoot,
+        trash: TrashAction = systemTrash
+    ) -> CleanReport {
+        var report = CleanReport(permanent: permanently)
         for item in items {
-            let moved: Bool
-            if item.members.isEmpty {
-                moved = (try? FileManager.default.trashItem(at: item.url, resultingItemURL: nil)) != nil
+            let removed: Bool
+            if permanently || item.removesPermanently {
+                removed = deletePermanently(item)
+            } else if item.members.isEmpty {
+                removed = (try? trash(item.url)) != nil
             } else {
-                moved = trashMembers(of: item)
+                removed = trashMembers(of: item, stagingRoot: stagingRoot, trash: trash)
             }
-            if moved {
+            if removed {
                 report.movedCount += 1
                 report.movedSize += item.size
             } else {
@@ -64,14 +88,19 @@ enum Trasher {
         return report
     }
 
+    private static func deletePermanently(_ item: CleanItem) -> Bool {
+        let targets = item.members.isEmpty ? [item.url] : item.members
+        let removed = targets.filter { (try? FileManager.default.removeItem(at: $0)) != nil }
+        return !removed.isEmpty
+    }
+
     /// Gathers many small files (such as single cache entries) into one dated folder and trashes
     /// that folder, so the Trash gets one tidy item instead of thousands. Paths inside the folder
     /// mirror the originals, so files can still be put back by hand.
-    private static func trashMembers(of item: CleanItem) -> Bool {
+    private static func trashMembers(of item: CleanItem, stagingRoot: URL, trash: TrashAction) -> Bool {
         let fm = FileManager.default
         let stamp = Date().formatted(.verbatim("\(year: .defaultDigits)-\(month: .twoDigits)-\(day: .twoDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)).\(minute: .twoDigits).\(second: .twoDigits)", timeZone: .current, calendar: .current))
-        let staging = URL.homeDirectory
-            .appending(path: "Library/Caches/\(AppInfo.bundleID)/Trash staging/\(item.name) \(stamp)")
+        let staging = uniqueURL(stagingRoot.appending(path: "\(item.name.replacingOccurrences(of: "/", with: "-")) \(stamp)"))
         guard (try? fm.createDirectory(at: staging, withIntermediateDirectories: true)) != nil else { return false }
 
         var moved: [(from: URL, to: URL)] = []
@@ -83,24 +112,62 @@ enum Trasher {
             if (try? fm.moveItem(at: file, to: target)) != nil { moved.append((file, target)) }
         }
 
-        if !moved.isEmpty, (try? fm.trashItem(at: staging, resultingItemURL: nil)) != nil { return true }
+        if !moved.isEmpty, (try? trash(staging)) != nil { return true }
         // Nothing moved, or the Trash refused: put every file back where it came from.
         for pair in moved { try? fm.moveItem(at: pair.to, to: pair.from) }
         try? fm.removeItem(at: staging)
         return false
     }
+
+    /// Two items with the same name cleaned in the same second must not share a staging folder.
+    private static func uniqueURL(_ url: URL) -> URL {
+        var candidate = url
+        var index = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = url.deletingLastPathComponent().appending(path: "\(url.lastPathComponent) \(index)")
+            index += 1
+        }
+        return candidate
+    }
+}
+
+/// Wording that follows the "delete permanently" setting.
+enum Removal {
+    static var isPermanent: Bool { AppSettings.shared.deletesPermanently }
+
+    static var actionTitle: String {
+        isPermanent ? L("Hapus Permanen", "Delete Permanently") : L("Pindahkan ke Trash", "Move to Trash")
+    }
+
+    static var actionSymbol: String { isPermanent ? "trash.slash" : "trash" }
+
+    /// "Pindahkan 3 file ke Trash?" or "Hapus permanen 3 file?"
+    static func question(_ subject: String) -> String {
+        isPermanent ? L("Hapus permanen \(subject)?", "Permanently delete \(subject)?") : L("Pindahkan \(subject) ke Trash?", "Move \(subject) to the Trash?")
+    }
+
+    static var undoNote: String {
+        isPermanent
+            ? L("Mode hapus permanen aktif: file langsung dihapus dan tidak bisa dikembalikan.", "Delete permanently is on: files are removed right away and can't be put back.")
+            : L("File masih bisa dikembalikan dari Trash.", "Files can still be put back from the Trash.")
+    }
+
+    static var progressText: String {
+        isPermanent ? L("Menghapus item…", "Deleting items…") : L("Memindahkan item ke Trash…", "Moving items to the Trash…")
+    }
 }
 
 struct JunkScanner: Sendable {
-    /// How long Chrome's web cache may go unused before it counts as junk.
+    /// How long browser web cache may go unused before it counts as junk.
     var chromeMaxAgeDays = ChromeCacheAge.days30.rawValue
+    /// How long a download may go unopened before it counts as old.
+    var downloadsMaxAgeDays = DownloadsAge.days90.rawValue
+    var home = URL.homeDirectory
 
     private static let installerExtensions: Set<String> = ["dmg", "pkg", "mpkg", "xip"]
     /// Cache folders shared by several apps of one vendor (Google holds Chrome and Android Studio).
     /// They are listed per app, so one open app doesn't lock the others and one isn't removed with another.
-    private static let vendorFolders: Set<String> = ["Google", "Mozilla", "JetBrains", "Microsoft", "Adobe"]
-    /// Handled entry by entry in the Chrome category instead.
-    private static let chromeFolders: Set<String> = ["Google/Chrome", "Google/Chrome-headless"]
+    private static let vendorFolders: Set<String> = ["Google", "Mozilla", "JetBrains", "Microsoft", "Adobe", "BraveSoftware"]
     private static let developerFolders = [
         "Developer/Xcode/DerivedData",
         "Developer/Xcode/iOS DeviceSupport",
@@ -114,29 +181,97 @@ struct JunkScanner: Sendable {
         switch kind {
         case .userCache:
             items = appCaches()
-        case .chrome:
-            items = ChromeCacheScanner(maxAgeDays: chromeMaxAgeDays).scan()
+        case .browsers:
+            items = BrowserCacheScanner(maxAgeDays: chromeMaxAgeDays, home: home).scan()
         case .userLogs:
             items = children(of: library("Logs"))
         case .developer:
             items = Self.developerFolders.flatMap { children(of: library($0)) }
         case .installers:
             items = installers()
+        case .oldDownloads:
+            items = oldDownloads()
+        case .iosBackups:
+            items = iosBackups()
+        case .trash:
+            items = trashContents()
         }
         return items.filter { $0.size > 0 }.sorted { $0.size > $1.size }
     }
 
     private func library(_ subpath: String) -> URL {
-        URL.homeDirectory.appending(path: "Library/\(subpath)", directoryHint: .isDirectory)
+        home.appending(path: "Library/\(subpath)", directoryHint: .isDirectory)
+    }
+
+    private var downloads: URL { home.appending(path: "Downloads", directoryHint: .isDirectory) }
+
+    /// Top-level items in Downloads not opened, changed or added for a while. Installers have their own category.
+    private func oldDownloads() -> [CleanItem] {
+        let keys: Set<URLResourceKey> = [.contentAccessDateKey, .contentModificationDateKey, .addedToDirectoryDateKey]
+        let cutoff = Date().addingTimeInterval(-Double(downloadsMaxAgeDays) * 24 * 60 * 60)
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: downloads, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles])) ?? []
+        return urls.compactMap { url in
+            guard !Self.installerExtensions.contains(url.pathExtension.lowercased()),
+                  let values = try? url.resourceValues(forKeys: keys) else { return nil }
+            let lastUsed = [values.contentAccessDate, values.contentModificationDate, values.addedToDirectoryDate]
+                .compactMap { $0 }.max() ?? .distantFuture
+            guard lastUsed < cutoff else { return nil }
+            let when = lastUsed.formatted(Date.RelativeFormatStyle(presentation: .named).locale(AppSettings.shared.locale))
+            return CleanItem(url: url, size: FileSizer.allocatedSize(of: url),
+                             detail: L("Terakhir dipakai \(when)", "Last used \(when)"))
+        }
+    }
+
+    /// Finder/iTunes device backups and downloaded iOS/iPadOS restore images.
+    private func iosBackups() -> [CleanItem] {
+        let backups = library("Application Support/MobileSync/Backup")
+        let backupItems = (try? FileManager.default.contentsOfDirectory(
+            at: backups, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]))?
+            .map { folder -> CleanItem in
+                let info = NSDictionary(contentsOf: folder.appending(path: "Info.plist"))
+                let device = info?["Device Name"] as? String ?? folder.lastPathComponent
+                let date = (info?["Last Backup Date"] as? Date)?
+                    .formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(AppSettings.shared.locale))
+                return CleanItem(url: folder, size: FileSizer.allocatedSize(of: folder),
+                                 title: L("Backup \(device)", "\(device) backup"),
+                                 detail: date.map { L("Backup terakhir \($0)", "Last backed up \($0)") })
+            } ?? []
+
+        let firmwareFolders = [
+            "iTunes/iPhone Software Updates", "iTunes/iPad Software Updates", "iTunes/iPod Software Updates",
+            "Group Containers/K36BKF7T3D.group.com.apple.configurator/Library/Caches/Firmware",
+        ].map(library)
+        let firmware = firmwareFolders.flatMap { folder in
+            ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [])
+                .filter { $0.pathExtension.lowercased() == "ipsw" }
+                .map { CleanItem(url: $0, size: FileSizer.allocatedSize(of: $0),
+                                 detail: L("File update iOS/iPadOS, bisa diunduh ulang", "iOS/iPadOS update file, can be downloaded again")) }
+        }
+        return backupItems + firmware
+    }
+
+    /// Items already in the Trash. Removing them is always permanent.
+    private func trashContents() -> [CleanItem] {
+        let trash = home.appending(path: ".Trash")
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: trash, includingPropertiesForKeys: [.addedToDirectoryDateKey], options: [.skipsHiddenFiles])) ?? []
+        return urls.map { url in
+            let added = (try? url.resourceValues(forKeys: [.addedToDirectoryDateKey]))?.addedToDirectoryDate
+            let when = added?.formatted(Date.RelativeFormatStyle(presentation: .named).locale(AppSettings.shared.locale))
+            return CleanItem(url: url, size: FileSizer.allocatedSize(of: url),
+                             detail: when.map { L("Masuk Trash \($0)", "Trashed \($0)") },
+                             removesPermanently: true)
+        }
     }
 
     private func appCaches() -> [CleanItem] {
         let caches = library("Caches")
-        return children(of: caches, excluding: [AppInfo.bundleID]).flatMap { item -> [CleanItem] in
+        return children(of: caches, excluding: Browser.ownedCacheFolders.union([AppInfo.bundleID])).flatMap { item -> [CleanItem] in
             let vendor = item.url.lastPathComponent
             guard Self.vendorFolders.contains(vendor) else { return [item] }
             return children(of: item.url)
-                .filter { !Self.chromeFolders.contains("\(vendor)/\($0.url.lastPathComponent)") }
+                .filter { !Browser.ownedCacheFolders.contains("\(vendor)/\($0.url.lastPathComponent)") }
                 .map { CleanItem(url: $0.url, size: $0.size, title: "\(vendor)/\($0.url.lastPathComponent)") }
         }
     }
@@ -151,7 +286,6 @@ struct JunkScanner: Sendable {
     }
 
     private func installers() -> [CleanItem] {
-        let downloads = URL.downloadsDirectory
         guard let urls = try? FileManager.default.contentsOfDirectory(
             at: downloads, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]
         ) else { return [] }
@@ -189,10 +323,12 @@ struct RunningAppMatcher: Sendable {
             return nil
         case .developer:
             return apps.first { $0.bundleID == "com.apple.dt.Xcode" || $0.bundleID == "com.apple.iphonesimulator" }
-        case .chrome:
-            // Old headless temp folders don't belong to the Chrome the user has open.
-            guard item.url != ChromeCacheScanner.headlessRoot else { return nil }
-            return apps.first { $0.bundleID == ChromeCacheScanner.bundleID }
+        case .browsers:
+            // Old headless temp folders don't belong to the browser the user has open.
+            guard let browser = Browser.owning(item.url) else { return nil }
+            return apps.first { browser.bundleIDs.contains($0.bundleID) }
+        case .oldDownloads, .iosBackups, .trash:
+            return nil
         case .userCache, .userLogs:
             let entry = item.name.lowercased()
             return apps.first { matches(entry, $0) }

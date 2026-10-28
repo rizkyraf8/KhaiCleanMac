@@ -39,7 +39,9 @@ struct UninstallerView: View {
             }
             Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: { _ in
-            Text(L("Aplikasi dan \(model.selectedLeftovers.count) file terkait akan dipindahkan ke Trash.", "The app and \(model.selectedLeftovers.count) related files will be moved to the Trash."))
+            Text(Removal.isPermanent
+                ? L("Aplikasi dan \(model.selectedLeftovers.count) file terkait akan dihapus permanen.", "The app and \(model.selectedLeftovers.count) related files will be deleted permanently.")
+                : L("Aplikasi dan \(model.selectedLeftovers.count) file terkait akan dipindahkan ke Trash.", "The app and \(model.selectedLeftovers.count) related files will be moved to the Trash."))
         }
         .alert(
             L("\(runningApp?.name ?? "") sedang berjalan", "\(runningApp?.name ?? "") is running"),
@@ -146,7 +148,7 @@ struct UninstallerView: View {
                 .frame(maxHeight: .infinity)
 
                 HStack {
-                    Label(L("Semua dipindahkan ke Trash, jadi masih bisa dikembalikan.", "Everything goes to the Trash, so it can be put back."), systemImage: "arrow.uturn.backward.circle")
+                    Label(Removal.undoNote, systemImage: Removal.isPermanent ? "exclamationmark.triangle" : "arrow.uturn.backward.circle")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Spacer()

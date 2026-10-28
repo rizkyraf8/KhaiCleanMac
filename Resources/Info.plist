@@ -19,13 +19,15 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.3.0</string>
+	<string>0.4.0</string>
 	<key>CFBundleVersion</key>
-	<string>3</string>
+	<string>4</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>KhaiCleanMac membaca dan mengatur Login Items lewat System Events.</string>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>KhaiCleanMac memeriksa Desktop untuk menemukan file berukuran besar.</string>
 	<key>NSDocumentsFolderUsageDescription</key>
