@@ -9,11 +9,27 @@
   Swift + SwiftUI native · macOS 15+ · Lisensi PolyForm Noncommercial
 </p>
 
+<p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/github/v/tag/rizkyraf8/KhaiCleanMac?label=latest%20version&color=5edcc0" alt="Latest version"></a>
+</p>
+
 <p align="center"><a href="README.md">Read in English</a></p>
 
 <p align="center">
   <img src="docs/screenshots/smartScan.png" width="820" alt="Smart Scan">
 </p>
+
+## Download
+
+<p align="center">
+  <a href="https://rizkyraf.id/projects/khaicleanmac"><img src="https://img.shields.io/badge/Download-KhaiCleanMac-8b7cf6?style=for-the-badge&logo=apple&logoColor=white" alt="Download KhaiCleanMac"></a>
+</p>
+
+Unduh versi terbaru KhaiCleanMac di **[rizkyraf.id/projects/khaicleanmac](https://rizkyraf.id/projects/khaicleanmac)**, lalu seret aplikasinya ke folder Applications. Lihat apa yang baru di [changelog](CHANGELOG.md).
+
+- Butuh macOS 15 Sequoia atau lebih baru, di Mac dengan Apple silicon (M1 atau lebih baru).
+- Aplikasi ini belum di-notarize Apple, jadi macOS mungkin menahannya saat pertama kali dibuka. Buka **Pengaturan Sistem › Privasi & Keamanan**, lalu klik **Buka Saja**. Ini hanya perlu sekali.
+- Saat pertama dibuka, panduan awal akan memandu pengaturan Akses Disk Penuh. Izin ini opsional, tapi beberapa pemindaian membutuhkannya.
 
 ## Fitur
 

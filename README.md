@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/github/v/tag/rizkyraf8/KhaiCleanMac?label=latest%20version&color=5edcc0" alt="Latest version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-8b7cf6" alt="PolyForm Noncommercial License"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-5edcc0" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Swift-6-ff7ea8" alt="Swift 6">
@@ -20,6 +21,18 @@
 <p align="center">
   <img src="docs/screenshots/smartScan.png" width="820" alt="Smart Scan">
 </p>
+
+## Download
+
+<p align="center">
+  <a href="https://rizkyraf.id/projects/khaicleanmac"><img src="https://img.shields.io/badge/Download-KhaiCleanMac-8b7cf6?style=for-the-badge&logo=apple&logoColor=white" alt="Download KhaiCleanMac"></a>
+</p>
+
+Get the latest version of KhaiCleanMac at **[rizkyraf.id/projects/khaicleanmac](https://rizkyraf.id/projects/khaicleanmac)**, then drag the app into your Applications folder. See what's new in the [changelog](CHANGELOG.md).
+
+- Needs macOS 15 Sequoia or later on a Mac with Apple silicon (M1 or newer).
+- The app isn't notarized by Apple yet, so macOS may stop it the first time you open it. Open **System Settings › Privacy & Security** and click **Open Anyway**. You only need to do this once.
+- On first launch, the welcome guide walks you through Full Disk Access. It's optional, but some scans need it.
 
 ## Features
 
