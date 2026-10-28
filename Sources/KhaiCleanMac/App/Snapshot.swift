@@ -10,8 +10,15 @@ enum Snapshot {
         guard let index = args.firstIndex(of: "--snapshot"), index + 1 < args.count else { return }
         let folder = URL(filePath: args[index + 1])
         let scheme: NSAppearance.Name = args.contains("--dark") ? .darkAqua : .aqua
+        if let langIndex = args.firstIndex(of: "--lang"), langIndex + 1 < args.count,
+           let language = AppLanguage(rawValue: args[langIndex + 1]) {
+            AppSettings.shared.persists = false
+            AppSettings.shared.language = language
+        }
 
         Task {
+            await render(SettingsView(), name: "settings", scheme: scheme, folder: folder,
+                         settle: 1, size: NSSize(width: 540, height: 560))
             for module in Module.allCases {
                 await render(ContentView(selection: module), name: module.rawValue, scheme: scheme, folder: folder,
                              settle: module == .uninstaller || module == .spaceLens ? 8 : 1.5)
@@ -52,7 +59,7 @@ enum Snapshot {
                 window.isReleasedWhenClosed = false
                 window.appearance = NSAppearance(named: scheme)
                 window.titlebarAppearsTransparent = true
-                let host = NSHostingView(rootView: view.environment(\.locale, Locale(identifier: "id_ID")))
+                let host = NSHostingView(rootView: LocalizedRoot { view })
                 window.contentView = host
                 window.orderBack(nil)
                 // Give async loaders (app list, disk info) a moment to settle.
@@ -60,7 +67,8 @@ enum Snapshot {
                 host.layoutSubtreeIfNeeded()
                 if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
                     host.cacheDisplay(in: host.bounds, to: rep)
-                    let suffix = scheme == .darkAqua ? "-dark" : ""
+                    let language = AppSettings.shared.language == .english ? "-en" : ""
+                    let suffix = language + (scheme == .darkAqua ? "-dark" : "")
                     try? rep.representation(using: .png, properties: [:])?
                         .write(to: folder.appending(path: "\(name)\(suffix).png"))
                 }

@@ -118,8 +118,16 @@ final class SmartScanModel {
 final class LargeFilesModel {
     enum Phase { case idle, scanning, results }
     enum Sort: String, CaseIterable, Identifiable {
-        case size = "Ukuran", lastUsed = "Terakhir dipakai", name = "Nama"
+        case size, lastUsed, name
         var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .size: L("Ukuran", "Size")
+            case .lastUsed: L("Terakhir dipakai", "Last used")
+            case .name: L("Nama", "Name")
+            }
+        }
     }
 
     private(set) var phase: Phase = .idle
@@ -277,7 +285,7 @@ final class UninstallerModel {
         isUninstalling = false
 
         if report.failed.contains(where: { $0.url == app.url }) {
-            toast = ToastMessage(text: "\(app.name) tidak bisa dipindahkan. Coba hapus manual dari Finder (butuh izin admin).", symbol: "exclamationmark.triangle.fill", colors: Palette.berry)
+            toast = ToastMessage(text: L("\(app.name) tidak bisa dipindahkan. Coba hapus manual dari Finder (butuh izin admin).", "\(app.name) couldn't be moved. Try removing it in Finder (needs an admin password)."), symbol: "exclamationmark.triangle.fill", colors: Palette.berry)
             leftovers.removeAll { item in selectedLeftovers.contains(item.url) && !report.failed.contains(item) }
             return
         }
@@ -287,14 +295,15 @@ final class UninstallerModel {
             leftovers = []
             selectedLeftovers = []
         }
-        toast = ToastMessage(text: "\(app.name) dihapus · \(report.movedSize.formattedBytes) dipindahkan ke Trash", colors: Module.uninstaller.colors)
+        toast = ToastMessage(text: L("\(app.name) dihapus · \(report.movedSize.formattedBytes) dipindahkan ke Trash", "\(app.name) removed · \(report.movedSize.formattedBytes) moved to the Trash"), colors: Module.uninstaller.colors)
     }
 }
 
 extension CleanReport {
     var summaryText: String {
-        var text = "\(movedCount) item (\(movedSize.formattedBytes)) dipindahkan ke Trash"
-        if !failed.isEmpty { text += " · \(failed.count) gagal" }
+        var text = L("\(movedCount) item (\(movedSize.formattedBytes)) dipindahkan ke Trash",
+                     "\(movedCount) \(movedCount == 1 ? "item" : "items") (\(movedSize.formattedBytes)) moved to the Trash")
+        if !failed.isEmpty { text += L(" · \(failed.count) gagal", " · \(failed.count) failed") }
         return text
     }
 }

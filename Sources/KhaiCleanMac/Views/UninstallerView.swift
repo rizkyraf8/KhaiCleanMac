@@ -12,7 +12,7 @@ struct UninstallerView: View {
                 Button {
                     Task { await model.load() }
                 } label: {
-                    Label("Muat Ulang", systemImage: "arrow.clockwise")
+                    Label(L("Muat Ulang", "Reload"), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(SoftButtonStyle())
                 .disabled(model.isLoading)
@@ -37,17 +37,17 @@ struct UninstallerView: View {
             Button("Uninstall", role: .destructive) {
                 Task { await model.uninstall(app) }
             }
-            Button("Batal", role: .cancel) {}
+            Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: { _ in
-            Text("Aplikasi dan \(model.selectedLeftovers.count) file terkait akan dipindahkan ke Trash.")
+            Text(L("Aplikasi dan \(model.selectedLeftovers.count) file terkait akan dipindahkan ke Trash.", "The app and \(model.selectedLeftovers.count) related files will be moved to the Trash."))
         }
         .alert(
-            "\(runningApp?.name ?? "") sedang berjalan",
+            L("\(runningApp?.name ?? "") sedang berjalan", "\(runningApp?.name ?? "") is running"),
             isPresented: Binding(get: { runningApp != nil }, set: { if !$0 { runningApp = nil } })
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Tutup aplikasinya dulu, lalu coba uninstall lagi.")
+            Text(L("Tutup aplikasinya dulu, lalu coba uninstall lagi.", "Quit the app first, then try again."))
         }
     }
 
@@ -56,7 +56,7 @@ struct UninstallerView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Cari aplikasi", text: $model.search)
+                TextField(L("Cari aplikasi", "Search apps"), text: $model.search)
                     .textFieldStyle(.plain)
             }
             .padding(10)
@@ -78,7 +78,7 @@ struct UninstallerView: View {
                 .scrollIndicators(.automatic)
             }
 
-            Text("\(model.apps.count) aplikasi · app bawaan Apple tidak ditampilkan")
+            Text(L("\(model.apps.count) aplikasi · app bawaan Apple tidak ditampilkan", "\(model.apps.count) apps · Apple's built-in apps are hidden"))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
@@ -99,7 +99,7 @@ struct UninstallerView: View {
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)
                         if let version = app.version {
-                            Text("Versi \(version)")
+                            Text(L("Versi \(version)", "Version \(version)"))
                                 .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
                         }
@@ -109,24 +109,24 @@ struct UninstallerView: View {
 
                 let appSize = model.sizes[app.url]
                 HStack(spacing: 12) {
-                    StatTile(title: "Aplikasi", value: appSize?.formattedBytes ?? "Menghitung…", colors: Palette.lavender)
-                    StatTile(title: "File sisa", value: model.leftoverSelectedSize.formattedBytes, colors: Palette.peach)
-                    StatTile(title: "Total dibersihkan", value: ((appSize ?? 0) + model.leftoverSelectedSize).formattedBytes, colors: Palette.mint)
+                    StatTile(title: L("Aplikasi", "App"), value: appSize?.formattedBytes ?? L("Menghitung…", "Calculating…"), colors: Palette.lavender)
+                    StatTile(title: L("File sisa", "Leftovers"), value: model.leftoverSelectedSize.formattedBytes, colors: Palette.peach)
+                    StatTile(title: L("Total dibersihkan", "Total to clean"), value: ((appSize ?? 0) + model.leftoverSelectedSize).formattedBytes, colors: Palette.mint)
                 }
 
-                Text("File terkait")
+                Text(L("File terkait", "Related files"))
                     .font(.system(size: 15, weight: .bold, design: .rounded))
 
                 Group {
                     if model.isLoadingLeftovers {
-                        ProgressView("Mencari file sisa…")
+                        ProgressView(L("Mencari file sisa…", "Looking for leftovers…"))
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if model.leftovers.isEmpty {
                         VStack(spacing: 8) {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.system(size: 28))
                                 .foregroundStyle(LinearGradient.soft(module.colors))
-                            Text("Tidak ada file sisa ditemukan.")
+                            Text(L("Tidak ada file sisa ditemukan.", "No leftover files found."))
                                 .font(.system(size: 13))
                                 .foregroundStyle(.secondary)
                         }
@@ -146,14 +146,14 @@ struct UninstallerView: View {
                 .frame(maxHeight: .infinity)
 
                 HStack {
-                    Label("Semua dipindahkan ke Trash, jadi masih bisa dikembalikan.", systemImage: "arrow.uturn.backward.circle")
+                    Label(L("Semua dipindahkan ke Trash, jadi masih bisa dikembalikan.", "Everything goes to the Trash, so it can be put back."), systemImage: "arrow.uturn.backward.circle")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
                         if model.isRunning(app) { runningApp = app } else { pendingUninstall = app }
                     } label: {
-                        Label(model.isUninstalling ? "Menghapus…" : "Uninstall", systemImage: "trash")
+                        Label(model.isUninstalling ? L("Menghapus…", "Removing…") : "Uninstall", systemImage: "trash")
                     }
                     .buttonStyle(GradientButtonStyle(colors: module.colors))
                     .disabled(model.isUninstalling || model.isLoadingLeftovers)
@@ -165,8 +165,8 @@ struct UninstallerView: View {
             EmptyStateView(
                 symbol: module.symbol,
                 colors: module.colors,
-                title: "Pilih aplikasi",
-                message: "Pilih aplikasi di sebelah kiri untuk melihat ukurannya dan file sisa yang ikut dibersihkan."
+                title: L("Pilih aplikasi", "Choose an app"),
+                message: L("Pilih aplikasi di sebelah kiri untuk melihat ukurannya dan file sisa yang ikut dibersihkan.", "Pick an app on the left to see its size and the leftover files that will be cleaned too.")
             ) { EmptyView() }
             .softCard()
         }

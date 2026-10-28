@@ -57,7 +57,7 @@ struct SidebarView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(AppInfo.name)
                         .font(.system(size: 16, weight: .bold, design: .rounded))
-                    Text("Mac bersih, hati tenang")
+                    Text(L("Mac bersih, hati tenang", "Clean Mac, calm mind"))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -67,7 +67,7 @@ struct SidebarView: View {
             .padding(.bottom, 14)
 
             ForEach(Module.Section.allCases, id: \.self) { section in
-                Text(section.rawValue)
+                Text(section.title)
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 10)
@@ -85,6 +85,7 @@ struct SidebarView: View {
 
             DiskCard()
             AccessCard()
+            SidebarFooter()
         }
         .padding(14)
         .frame(maxHeight: .infinity)
@@ -155,7 +156,7 @@ private struct DiskCard: View {
                 }
             }
             .frame(height: 7)
-            Text(info.map { "\($0.available.formattedBytes) tersedia dari \($0.total.formattedBytes)" } ?? "Membaca disk…")
+            Text(info.map { L("\($0.available.formattedBytes) tersedia dari \($0.total.formattedBytes)", "\($0.available.formattedBytes) free of \($0.total.formattedBytes)") } ?? L("Membaca disk…", "Reading disk…"))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
@@ -170,36 +171,72 @@ private struct DiskCard: View {
     }
 }
 
+private struct SidebarFooter: View {
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack {
+            SettingsLink {
+                Label(L("Pengaturan", "Settings"), systemImage: "gearshape.fill")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(isHovering ? .primary : .secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.primary.opacity(isHovering ? 0.08 : 0.05)))
+            }
+            .buttonStyle(.plain)
+            .onHover { isHovering = $0 }
+            .help(L("Bahasa, tampilan, dan info aplikasi (⌘,)", "Language, appearance and app info (⌘,)"))
+            Spacer()
+            Text("v\(AppInfo.version)")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.tertiary)
+                .help(L("Versi \(AppInfo.version) (build \(AppInfo.build))", "Version \(AppInfo.version) (build \(AppInfo.build))"))
+        }
+        .padding(.top, 6)
+    }
+}
+
 private struct AccessCard: View {
     @State private var granted = Permissions.hasFullDiskAccess
+    @State private var showStaleHint = false
 
     var body: some View {
         Group {
             if granted {
-                Label("Akses Disk Penuh aktif", systemImage: "checkmark.shield.fill")
+                Label(L("Akses Disk Penuh aktif", "Full Disk Access on"), systemImage: "checkmark.shield.fill")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color(hex: 0x10B981))
                     .padding(.horizontal, 6)
                     .padding(.top, 4)
             } else {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Akses Disk Penuh", systemImage: "lock.shield.fill")
+                    Label(L("Akses Disk Penuh", "Full Disk Access"), systemImage: "lock.shield.fill")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(LinearGradient.soft(Palette.peach))
-                    Text("Izinkan agar pemindaian dan uninstall lebih lengkap.")
+                    Text(L("Izinkan agar pemindaian dan uninstall lebih lengkap.", "Allow it for more thorough scans and uninstalls."))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 12) {
-                        Button("Buka Pengaturan") { Permissions.openFullDiskAccessSettings() }
-                        Button("Cek Lagi") { withAnimation(.snappy) { granted = Permissions.hasFullDiskAccess } }
+                        Button(L("Buka Pengaturan", "Open Settings")) { Permissions.openFullDiskAccessSettings() }
+                        Button(L("Cek Lagi", "Check Again")) {
+                            withAnimation(.snappy) {
+                                granted = Permissions.hasFullDiskAccess
+                                showStaleHint = !granted
+                            }
+                        }
                     }
                     .buttonStyle(.link)
                     .font(.system(size: 11, weight: .semibold))
-                    Text("Sudah diizinkan tapi masih muncul? Di Pengaturan, hapus KhaiCleanMac dengan tombol −, tambahkan lagi, lalu buka ulang aplikasi.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    // Only worth the space once the user believes they already allowed it.
+                    if showStaleHint {
+                        Text(L("Sudah diizinkan tapi masih muncul? Di Pengaturan, hapus KhaiCleanMac dengan tombol −, tambahkan lagi, lalu buka ulang aplikasi.",
+                               "Already allowed but still showing? In Settings, remove KhaiCleanMac with the − button, add it again, then reopen the app."))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .softCard(padding: 12, radius: 16)

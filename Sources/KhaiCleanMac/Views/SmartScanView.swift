@@ -13,7 +13,7 @@ struct SmartScanView: View {
                     Button {
                         Task { await model.scan() }
                     } label: {
-                        Label("Pindai Ulang", systemImage: "arrow.clockwise")
+                        Label(L("Pindai Ulang", "Scan Again"), systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(SoftButtonStyle())
                 }
@@ -32,13 +32,14 @@ struct SmartScanView: View {
                 CategoryDetailSheet(model: model, category: category)
             }
         }
-        .alert("Bersihkan \(model.selectedSize.formattedBytes)?", isPresented: $confirmClean) {
-            Button("Pindahkan ke Trash", role: .destructive) {
+        .alert(L("Bersihkan \(model.selectedSize.formattedBytes)?", "Clean \(model.selectedSize.formattedBytes)?"), isPresented: $confirmClean) {
+            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
                 Task { await model.clean() }
             }
-            Button("Batal", role: .cancel) {}
+            Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: {
-            Text("Item dipindahkan ke Trash dan masih bisa dikembalikan sebelum Trash dikosongkan.\n\nCache dibuat ulang otomatis, jadi aplikasi terkait mungkin terasa sedikit lebih lambat saat pertama dibuka. Cache milik aplikasi yang sedang terbuka tidak ikut dibersihkan.")
+            Text(L("Item dipindahkan ke Trash dan masih bisa dikembalikan sebelum Trash dikosongkan.\n\nCache dibuat ulang otomatis, jadi aplikasi terkait mungkin terasa sedikit lebih lambat saat pertama dibuka. Cache milik aplikasi yang sedang terbuka tidak ikut dibersihkan.",
+                   "Items go to the Trash and can be put back until you empty it.\n\nCaches are rebuilt automatically, so related apps may feel a little slower the first time they open. Caches of apps that are currently open are left alone."))
         }
     }
 
@@ -47,13 +48,13 @@ struct SmartScanView: View {
     private var idleView: some View {
         VStack(spacing: 28) {
             Spacer()
-            ScanOrb(colors: module.colors, isActive: false, label: "Pindai") {
+            ScanOrb(colors: module.colors, isActive: false, label: L("Pindai", "Scan")) {
                 Task { await model.scan() }
             }
             VStack(spacing: 8) {
-                Text("Siap merapikan Mac kamu?")
+                Text(L("Siap merapikan Mac kamu?", "Ready to tidy up your Mac?"))
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                Text("KhaiCleanMac akan mencari file sampah di bawah ini. Tidak ada yang dihapus sebelum kamu menyetujuinya.")
+                Text(L("KhaiCleanMac akan mencari file sampah di bawah ini. Tidak ada yang dihapus sebelum kamu menyetujuinya.", "KhaiCleanMac looks for the junk below. Nothing is removed until you approve it."))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -72,8 +73,8 @@ struct SmartScanView: View {
     private var scanningView: some View {
         VStack(spacing: 28) {
             Spacer()
-            ScanOrb(colors: module.colors, isActive: true, label: "Memindai…") {}
-            Text(model.currentKind.map { "Memeriksa \($0.title.lowercased())…" } ?? "Menyiapkan…")
+            ScanOrb(colors: module.colors, isActive: true, label: L("Memindai…", "Scanning…")) {}
+            Text(model.currentKind.map { L("Memeriksa \($0.title.lowercased())…", "Checking \($0.title.lowercased())…") } ?? L("Menyiapkan…", "Getting ready…"))
                 .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
                 .contentTransition(.opacity)
@@ -93,10 +94,10 @@ struct SmartScanView: View {
             EmptyStateView(
                 symbol: "checkmark.seal.fill",
                 colors: module.colors,
-                title: "Mac kamu sudah bersih!",
-                message: "Tidak ada file sampah yang ditemukan. Coba pindai lagi beberapa hari ke depan."
+                title: L("Mac kamu sudah bersih!", "Your Mac is already clean!"),
+                message: L("Tidak ada file sampah yang ditemukan. Coba pindai lagi beberapa hari ke depan.", "No junk found. Try scanning again in a few days.")
             ) {
-                Button("Selesai") { model.reset() }
+                Button(L("Selesai", "Done")) { model.reset() }
                     .buttonStyle(GradientButtonStyle(colors: module.colors))
             }
         } else {
@@ -123,9 +124,9 @@ struct SmartScanView: View {
                 .scrollIndicators(.never)
 
                 ActionBar(
-                    caption: "Dipilih untuk dibersihkan",
+                    caption: L("Dipilih untuk dibersihkan", "Selected for cleanup"),
                     value: model.selectedSize.formattedBytes,
-                    buttonTitle: "Bersihkan",
+                    buttonTitle: L("Bersihkan", "Clean"),
                     buttonSymbol: "sparkles",
                     colors: module.colors,
                     isDisabled: model.selected.isEmpty
@@ -139,13 +140,14 @@ struct SmartScanView: View {
     private var summaryCard: some View {
         HStack(spacing: 20) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Sampah ditemukan")
+                Text(L("Sampah ditemukan", "Junk found"))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                 Text(model.totalSize.formattedBytes)
                     .font(.system(size: 40, weight: .heavy, design: .rounded))
                     .foregroundStyle(LinearGradient.soft(module.colors))
-                Text("\(model.itemCount) item di \(model.categories.count { !$0.items.isEmpty }) kategori")
+                Text(L("\(model.itemCount) item di \(model.categories.count { !$0.items.isEmpty }) kategori",
+                       "\(model.itemCount) items in \(model.categories.count { !$0.items.isEmpty }) categories"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
@@ -160,7 +162,7 @@ struct SmartScanView: View {
         HStack(spacing: 14) {
             GradientIcon(symbol: "app.badge.fill", colors: Palette.sunny, size: 36, corner: 11)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Cache aplikasi yang sedang terbuka tidak dipilih")
+                Text(L("Cache aplikasi yang sedang terbuka tidak dipilih", "Caches of open apps are not selected"))
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                 Text(inUseMessage)
                     .font(.system(size: 12))
@@ -173,9 +175,11 @@ struct SmartScanView: View {
     }
 
     private var inUseMessage: String {
-        let system = "Cache proses sistem yang sedang aktif juga dikunci agar aman."
+        let system = L("Cache proses sistem yang sedang aktif juga dikunci agar aman.", "Caches of active system processes are locked too, to stay safe.")
         guard !model.inUseApps.isEmpty else { return system }
-        var text = "\(model.inUseApps.joined(separator: ", ")) sedang terbuka. Tutup aplikasinya, lalu pindai ulang kalau ingin ikut membersihkan cache-nya."
+        let apps = model.inUseApps.joined(separator: ", ")
+        var text = L("\(apps) sedang terbuka. Tutup aplikasinya, lalu pindai ulang kalau ingin ikut membersihkan cache-nya.",
+                     "\(apps) \(model.inUseApps.count == 1 ? "is" : "are") open. Quit them and scan again if you want to clean their caches too.")
         if model.hasSystemOwners { text += " " + system }
         return text
     }
@@ -183,8 +187,8 @@ struct SmartScanView: View {
     private var cleaningView: some View {
         VStack(spacing: 20) {
             Spacer()
-            ScanOrb(colors: module.colors, isActive: true, label: "Membersihkan…", symbol: "wind") {}
-            Text("Memindahkan item ke Trash…")
+            ScanOrb(colors: module.colors, isActive: true, label: L("Membersihkan…", "Cleaning…"), symbol: "wind") {}
+            Text(L("Memindahkan item ke Trash…", "Moving items to the Trash…"))
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
             Spacer()
@@ -197,25 +201,29 @@ struct SmartScanView: View {
         return EmptyStateView(
             symbol: "checkmark.circle.fill",
             colors: module.colors,
-            title: "Beres! \(report.movedSize.formattedBytes) dibersihkan",
+            title: L("Beres! \(report.movedSize.formattedBytes) dibersihkan", "All done! \(report.movedSize.formattedBytes) cleaned"),
             message: doneMessage(report)
         ) {
             HStack(spacing: 12) {
-                Button("Buka Trash") { Permissions.openTrash() }
+                Button(L("Buka Trash", "Open Trash")) { Permissions.openTrash() }
                     .buttonStyle(SoftButtonStyle())
-                Button("Selesai") { model.reset() }
+                Button(L("Selesai", "Done")) { model.reset() }
                     .buttonStyle(GradientButtonStyle(colors: module.colors))
             }
         }
     }
 
     private func doneMessage(_ report: CleanReport) -> String {
-        var text = "\(report.movedCount) item dipindahkan ke Trash. Kosongkan Trash untuk benar-benar membebaskan ruang disk."
+        var text = L("\(report.movedCount) item dipindahkan ke Trash. Kosongkan Trash untuk benar-benar membebaskan ruang disk.",
+                     "\(report.movedCount) \(report.movedCount == 1 ? "item" : "items") moved to the Trash. Empty the Trash to actually free up disk space.")
         if !report.failed.isEmpty {
-            text += "\n\(report.failed.count) item dilewati karena sedang dipakai atau dilindungi sistem."
+            text += L("\n\(report.failed.count) item dilewati karena sedang dipakai atau dilindungi sistem.",
+                      "\n\(report.failed.count) skipped because they are in use or protected by the system.")
         }
         if !model.skippedApps.isEmpty {
-            text += "\nCache \(model.skippedApps.joined(separator: ", ")) dilewati karena aplikasinya dibuka setelah pemindaian."
+            let apps = model.skippedApps.joined(separator: ", ")
+            text += L("\nCache \(apps) dilewati karena aplikasinya dibuka setelah pemindaian.",
+                      "\nSkipped the caches of \(apps) because those apps were opened after the scan.")
         }
         return text
     }
@@ -292,18 +300,18 @@ private struct CategoryCard: View {
             HStack(alignment: .lastTextBaseline, spacing: 8) {
                 Text(category.totalSize.formattedBytes)
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                Text("\(category.items.count) item")
+                Text(L("\(category.items.count) item", "\(category.items.count) items"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 if inUseCount > 0 {
-                    Label("\(inUseCount) dipakai", systemImage: "lock.fill")
+                    Label(L("\(inUseCount) dipakai", "\(inUseCount) in use"), systemImage: "lock.fill")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Palette.sunny[1])
-                        .help("Milik aplikasi yang sedang terbuka, jadi tidak ikut dibersihkan")
+                        .help(L("Milik aplikasi yang sedang terbuka, jadi tidak ikut dibersihkan", "Belongs to an open app, so it won't be cleaned"))
                 }
                 Spacer()
                 if !category.items.isEmpty {
-                    Button("Lihat detail", action: onDetails)
+                    Button(L("Lihat detail", "Details"), action: onDetails)
                         .buttonStyle(.plain)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(LinearGradient.soft(kind.colors))
@@ -352,7 +360,8 @@ private struct CategoryDetailSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(category.kind.title)
                         .font(.system(size: 18, weight: .bold, design: .rounded))
-                    Text("\(model.selectedSize(in: category).formattedBytes) dipilih dari \(category.totalSize.formattedBytes)")
+                    Text(L("\(model.selectedSize(in: category).formattedBytes) dipilih dari \(category.totalSize.formattedBytes)",
+                           "\(model.selectedSize(in: category).formattedBytes) selected of \(category.totalSize.formattedBytes)"))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -362,7 +371,7 @@ private struct CategoryDetailSheet: View {
                 } label: {
                     HStack(spacing: 6) {
                         CheckCircle(state: model.selectionState(of: category), colors: category.kind.colors)
-                        Text("Pilih semua")
+                        Text(L("Pilih semua", "Select all"))
                     }
                 }
                 .buttonStyle(.plain)
@@ -387,7 +396,7 @@ private struct CategoryDetailSheet: View {
 
             HStack {
                 Spacer()
-                Button("Selesai") { dismiss() }
+                Button(L("Selesai", "Done")) { dismiss() }
                     .buttonStyle(GradientButtonStyle(colors: category.kind.colors))
                     .keyboardShortcut(.defaultAction)
             }
@@ -427,7 +436,7 @@ struct ItemRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let lockedBy {
-                    Text("\(lockedBy) sedang terbuka · tutup dulu untuk membersihkan")
+                    Text(L("\(lockedBy) sedang terbuka · tutup dulu untuk membersihkan", "\(lockedBy) is open · quit it to clean this"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Palette.sunny[1])
                         .lineLimit(1)
@@ -449,7 +458,7 @@ struct ItemRow: View {
                 Image(systemName: "arrow.up.forward.square")
             }
             .buttonStyle(.borderless)
-            .help("Tampilkan di Finder")
+            .help(L("Tampilkan di Finder", "Show in Finder"))
             .opacity(isHovering ? 1 : 0)
         }
         .padding(.horizontal, 10)

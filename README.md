@@ -31,8 +31,9 @@
 | **Space Lens** | Shows a treemap of any folder (Home by default). Double-click to drill in, use the breadcrumb to go back |
 | **Uninstaller** | Removes apps from `/Applications` and `~/Applications` together with the files they leave behind (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents and more) |
 | **Menu bar** | Shows live CPU usage in the menu bar, plus a panel with CPU, memory, disk and battery |
+| **Settings** | Switch the language (Bahasa Indonesia or English) and the appearance (Match System, Light or Dark). Open it with ⌘, or from the bottom of the sidebar |
 
-The interface is in Indonesian.
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version. The current version is shown at the bottom of the sidebar and in Settings → About.
 
 <p align="center">
   <img src="docs/screenshots/smartScan-results.png" width="410" alt="Smart Scan results">
@@ -107,7 +108,7 @@ swift build && .build/debug/KhaiCleanMac --snapshot ./snapshots [--dark] [--resu
 
 ```
 Sources/KhaiCleanMac/
-  App/         entry point, menu bar scene, debug snapshots
+  App/         entry point, settings (language, appearance), debug snapshots
   Design/      theme (palette, background, cards), components, logo artwork
   Models/      modules, junk categories, file kinds, scan results
   Services/    scanners (junk, large files, duplicates, apps, disk space),

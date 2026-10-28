@@ -9,10 +9,10 @@ struct LargeFilesView: View {
         VStack(alignment: .leading, spacing: 20) {
             ModuleHeader(module: module) {
                 HStack(spacing: 10) {
-                    Text("Minimal")
+                    Text(L("Minimal", "Minimum"))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
-                    Picker("Minimal", selection: $model.threshold) {
+                    Picker(L("Minimal", "Minimum"), selection: $model.threshold) {
                         ForEach(SizeThreshold.allCases) { Text($0.label).tag($0) }
                     }
                     .pickerStyle(.segmented)
@@ -23,7 +23,7 @@ struct LargeFilesView: View {
                         Button {
                             model.scan()
                         } label: {
-                            Label("Pindai Ulang", systemImage: "arrow.clockwise")
+                            Label(L("Pindai Ulang", "Scan Again"), systemImage: "arrow.clockwise")
                         }
                         .buttonStyle(SoftButtonStyle())
                         .fixedSize()
@@ -36,13 +36,14 @@ struct LargeFilesView: View {
                 EmptyStateView(
                     symbol: module.symbol,
                     colors: module.colors,
-                    title: "Cari file yang makan tempat",
-                    message: "Kami akan memeriksa folder pribadimu (Desktop, Documents, Downloads, dan lainnya) untuk file di atas \(model.threshold.label). macOS mungkin meminta izin akses folder."
+                    title: L("Cari file yang makan tempat", "Find what's taking up space"),
+                    message: L("Kami akan memeriksa folder pribadimu (Desktop, Documents, Downloads, dan lainnya) untuk file di atas \(model.threshold.label). macOS mungkin meminta izin akses folder.",
+                               "We'll check your home folder (Desktop, Documents, Downloads and more) for files over \(model.threshold.label). macOS may ask for permission to access these folders.")
                 ) {
                     Button {
                         model.scan()
                     } label: {
-                        Label("Mulai Pindai", systemImage: "magnifyingglass")
+                        Label(L("Mulai Pindai", "Start Scan"), systemImage: "magnifyingglass")
                     }
                     .buttonStyle(GradientButtonStyle(colors: module.colors))
                 }
@@ -53,30 +54,30 @@ struct LargeFilesView: View {
             }
         }
         .toast($model.toast)
-        .alert("Pindahkan \(model.selected.count) file ke Trash?", isPresented: $confirmTrash) {
-            Button("Pindahkan ke Trash", role: .destructive) {
+        .alert(L("Pindahkan \(model.selected.count) file ke Trash?", "Move \(model.selected.count) \(model.selected.count == 1 ? "file" : "files") to the Trash?"), isPresented: $confirmTrash) {
+            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
                 Task { await model.moveSelectedToTrash() }
             }
-            Button("Batal", role: .cancel) {}
+            Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: {
-            Text("Total \(model.selectedSize.formattedBytes). File masih bisa dikembalikan dari Trash.")
+            Text(L("Total \(model.selectedSize.formattedBytes). File masih bisa dikembalikan dari Trash.", "Total \(model.selectedSize.formattedBytes). Files can still be put back from the Trash."))
         }
     }
 
     private var scanningView: some View {
         VStack(spacing: 24) {
             Spacer()
-            ScanOrb(colors: module.colors, isActive: true, label: "Mencari…", symbol: "magnifyingglass") {}
+            ScanOrb(colors: module.colors, isActive: true, label: L("Mencari…", "Searching…"), symbol: "magnifyingglass") {}
             VStack(spacing: 6) {
-                Text("\(model.visitedCount.formatted()) file diperiksa")
+                Text(L("\(model.visitedCount.formatted()) file diperiksa", "\(model.visitedCount.formatted()) files checked"))
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .contentTransition(.numericText())
                     .animation(.snappy, value: model.visitedCount)
-                Text("Folder Library dan isi paket aplikasi dilewati.")
+                Text(L("Folder Library dan isi paket aplikasi dilewati.", "The Library folder and app package contents are skipped."))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
-            Button("Batal") { model.cancel() }
+            Button(L("Batal", "Cancel")) { model.cancel() }
                 .buttonStyle(SoftButtonStyle())
             Spacer()
         }
@@ -89,10 +90,10 @@ struct LargeFilesView: View {
             EmptyStateView(
                 symbol: "checkmark.seal.fill",
                 colors: module.colors,
-                title: "Tidak ada file di atas \(model.threshold.label)",
-                message: "Coba turunkan batas ukuran untuk melihat lebih banyak file."
+                title: L("Tidak ada file di atas \(model.threshold.label)", "No files over \(model.threshold.label)"),
+                message: L("Coba turunkan batas ukuran untuk melihat lebih banyak file.", "Try a lower size limit to see more files.")
             ) {
-                Button("Pindai Ulang") { model.scan() }
+                Button(L("Pindai Ulang", "Scan Again")) { model.scan() }
                     .buttonStyle(GradientButtonStyle(colors: module.colors))
             }
         } else {
@@ -100,7 +101,7 @@ struct LargeFilesView: View {
                 HStack(spacing: 8) {
                     ScrollView(.horizontal) {
                         HStack(spacing: 8) {
-                            Chip(title: "Semua", count: model.files.count, colors: module.colors, isSelected: model.filter == nil) {
+                            Chip(title: L("Semua", "All"), count: model.files.count, colors: module.colors, isSelected: model.filter == nil) {
                                 model.filter = nil
                             }
                             ForEach(model.presentKinds) { kind in
@@ -114,8 +115,8 @@ struct LargeFilesView: View {
                     }
                     .scrollIndicators(.never)
 
-                    Picker("Urutkan", selection: $model.sort) {
-                        ForEach(LargeFilesModel.Sort.allCases) { Text($0.rawValue).tag($0) }
+                    Picker(L("Urutkan", "Sort"), selection: $model.sort) {
+                        ForEach(LargeFilesModel.Sort.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.menu)
                     .fixedSize()
@@ -134,9 +135,10 @@ struct LargeFilesView: View {
                 .softCard(padding: 4)
 
                 ActionBar(
-                    caption: "\(model.selected.count) dari \(model.files.count) file dipilih · total \(model.totalSize.formattedBytes)",
+                    caption: L("\(model.selected.count) dari \(model.files.count) file dipilih · total \(model.totalSize.formattedBytes)",
+                                "\(model.selected.count) of \(model.files.count) files selected · \(model.totalSize.formattedBytes) total"),
                     value: model.selectedSize.formattedBytes,
-                    buttonTitle: "Pindahkan ke Trash",
+                    buttonTitle: L("Pindahkan ke Trash", "Move to Trash"),
                     buttonSymbol: "trash",
                     colors: module.colors,
                     isDisabled: model.selected.isEmpty
@@ -189,7 +191,7 @@ private struct LargeFileRow: View {
                 Image(systemName: "arrow.up.forward.square")
             }
             .buttonStyle(.borderless)
-            .help("Tampilkan di Finder")
+            .help(L("Tampilkan di Finder", "Show in Finder"))
             .opacity(isHovering ? 1 : 0.25)
         }
         .padding(.horizontal, 12)

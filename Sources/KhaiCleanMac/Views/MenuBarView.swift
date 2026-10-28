@@ -23,7 +23,7 @@ struct MenuBarView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(AppInfo.name)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
-                    Text("Kondisi Mac kamu saat ini")
+                    Text(L("Kondisi Mac kamu saat ini", "How your Mac is doing"))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -32,21 +32,21 @@ struct MenuBarView: View {
 
             MeterRow(title: "CPU", symbol: "cpu", value: "\(Int(monitor.cpu * 100))%", fraction: monitor.cpu, colors: Palette.mint)
             MeterRow(
-                title: "Memori", symbol: "memorychip",
+                title: L("Memori", "Memory"), symbol: "memorychip",
                 value: "\(Self.memory(monitor.memoryUsed)) / \(Self.memory(monitor.memoryTotal))",
                 fraction: monitor.memoryFraction, colors: Palette.lavender
             )
             if let disk = monitor.disk {
                 MeterRow(
                     title: "Disk", symbol: "internaldrive",
-                    value: "\(disk.available.formattedBytes) tersedia",
+                    value: L("\(disk.available.formattedBytes) tersedia", "\(disk.available.formattedBytes) free"),
                     fraction: disk.usedFraction, colors: Palette.peach
                 )
             }
             if let battery = monitor.battery {
                 MeterRow(
-                    title: "Baterai", symbol: battery.isCharging ? "battery.100percent.bolt" : "battery.75percent",
-                    value: "\(battery.percent)%" + (battery.isCharging ? " · mengisi" : ""),
+                    title: L("Baterai", "Battery"), symbol: battery.isCharging ? "battery.100percent.bolt" : "battery.75percent",
+                    value: "\(battery.percent)%" + (battery.isCharging ? L(" · mengisi", " · charging") : ""),
                     fraction: Double(battery.percent) / 100, colors: Palette.leaf
                 )
             }
@@ -58,11 +58,11 @@ struct MenuBarView: View {
                     openWindow(id: "main")
                     NSApp.activate()
                 } label: {
-                    Label("Buka KhaiCleanMac", systemImage: "macwindow")
+                    Label(L("Buka KhaiCleanMac", "Open KhaiCleanMac"), systemImage: "macwindow")
                 }
                 .buttonStyle(GradientButtonStyle(colors: Palette.lavender))
                 Spacer()
-                Button("Keluar") { NSApp.terminate(nil) }
+                Button(L("Keluar", "Quit")) { NSApp.terminate(nil) }
                     .buttonStyle(SoftButtonStyle())
             }
         }

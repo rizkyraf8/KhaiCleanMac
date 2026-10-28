@@ -11,7 +11,7 @@ struct SpaceLensView: View {
                 Button {
                     model.chooseFolder()
                 } label: {
-                    Label("Pilih Folder", systemImage: "folder")
+                    Label(L("Pilih Folder", "Choose Folder"), systemImage: "folder")
                 }
                 .buttonStyle(SoftButtonStyle())
             }
@@ -30,16 +30,16 @@ struct SpaceLensView: View {
             if model.path.isEmpty { model.open(root: URL.homeDirectory) }
         }
         .alert(
-            "Pindahkan \(pendingTrash?.name ?? "") ke Trash?",
+            L("Pindahkan \(pendingTrash?.name ?? "") ke Trash?", "Move \(pendingTrash?.name ?? "") to the Trash?"),
             isPresented: Binding(get: { pendingTrash != nil }, set: { if !$0 { pendingTrash = nil } }),
             presenting: pendingTrash
         ) { item in
-            Button("Pindahkan ke Trash", role: .destructive) {
+            Button(L("Pindahkan ke Trash", "Move to Trash"), role: .destructive) {
                 Task { await model.moveToTrash(item) }
             }
-            Button("Batal", role: .cancel) {}
+            Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: { item in
-            Text("\((item.size ?? 0).formattedBytes) akan dipindahkan ke Trash dan masih bisa dikembalikan.")
+            Text(L("\((item.size ?? 0).formattedBytes) akan dipindahkan ke Trash dan masih bisa dikembalikan.", "\((item.size ?? 0).formattedBytes) will be moved to the Trash and can still be put back."))
         }
     }
 
@@ -71,7 +71,7 @@ struct SpaceLensView: View {
             Spacer()
             if model.isMeasuring {
                 ProgressView().controlSize(.small)
-                Text("Mengukur \(model.measuredCount)/\(model.items.count)…")
+                Text(L("Mengukur \(model.measuredCount)/\(model.items.count)…", "Measuring \(model.measuredCount)/\(model.items.count)…"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -89,11 +89,11 @@ struct SpaceLensView: View {
                 VStack(spacing: 10) {
                     if model.isMeasuring {
                         ProgressView()
-                        Text("Mengukur folder…")
+                        Text(L("Mengukur folder…", "Measuring folder…"))
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("Folder ini kosong.")
+                        Text(L("Folder ini kosong.", "This folder is empty."))
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                     }
@@ -114,7 +114,7 @@ struct SpaceLensView: View {
 
     private var sideList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Isi folder")
+            Text(L("Isi folder", "Folder contents"))
                 .font(.system(size: 14, weight: .bold, design: .rounded))
             ScrollView {
                 LazyVStack(spacing: 2) {
@@ -156,7 +156,7 @@ struct SpaceLensView: View {
                 .padding(.top, 4)
                 .transition(.opacity)
             } else {
-                Text("Klik untuk memilih, klik dua kali untuk membuka folder.")
+                Text(L("Klik untuk memilih, klik dua kali untuk membuka folder.", "Click to select, double-click to open a folder."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -206,7 +206,7 @@ private struct SpaceRow: View {
                         .font(.system(size: 10, weight: .bold))
                 }
                 .buttonStyle(.borderless)
-                .help("Buka folder")
+                .help(L("Buka folder", "Open folder"))
             }
         }
         .padding(.horizontal, 8)

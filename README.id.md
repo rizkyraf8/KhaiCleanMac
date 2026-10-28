@@ -25,6 +25,9 @@
 | **Space Lens** | Menampilkan peta treemap isi folder (default: Home). Klik dua kali untuk masuk ke folder, dan pakai breadcrumb untuk kembali |
 | **Uninstaller** | Menghapus aplikasi dari `/Applications` dan `~/Applications` beserta file sisanya (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents, dll.) |
 | **Menu bar** | Menampilkan persentase CPU di menu bar, dengan panel berisi CPU, memori, disk, dan baterai |
+| **Pengaturan** | Mengganti bahasa (Bahasa Indonesia atau English) dan tampilan (Ikuti Sistem, Terang, atau Gelap). Buka dengan ⌘, atau dari bagian bawah sidebar |
+
+Perubahan di setiap versi tercatat di [CHANGELOG.md](CHANGELOG.md). Versi yang sedang dipakai ditampilkan di bagian bawah sidebar dan di Pengaturan → Tentang.
 
 <p align="center">
   <img src="docs/screenshots/smartScan-results.png" width="410" alt="Hasil Smart Scan">
@@ -99,7 +102,7 @@ swift build && .build/debug/KhaiCleanMac --snapshot ./snapshots [--dark] [--resu
 
 ```
 Sources/KhaiCleanMac/
-  App/         entry point, scene menu bar, snapshot debug
+  App/         entry point, pengaturan (bahasa, tampilan), snapshot debug
   Design/      tema (palet, background, kartu), komponen, gambar logo
   Models/      modul, kategori sampah, jenis file, hasil pemindaian
   Services/    pemindai (sampah, file besar, duplikat, aplikasi, ruang disk),

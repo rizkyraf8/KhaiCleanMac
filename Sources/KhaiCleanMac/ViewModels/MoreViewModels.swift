@@ -65,7 +65,7 @@ final class DuplicatesModel {
         } else if group.files.count(where: { selected.contains($0.url) }) < group.files.count - 1 {
             selected.insert(file.url)
         } else {
-            toast = ToastMessage(text: "Sisakan minimal satu salinan di setiap grup", symbol: "hand.raised.fill", colors: Module.duplicates.colors)
+            toast = ToastMessage(text: L("Sisakan minimal satu salinan di setiap grup", "Keep at least one copy in every group"), symbol: "hand.raised.fill", colors: Module.duplicates.colors)
         }
     }
 
@@ -134,7 +134,7 @@ final class SpaceLensModel {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.prompt = "Pindai"
+        panel.prompt = L("Pindai", "Scan")
         panel.directoryURL = current
         if panel.runModal() == .OK, let url = panel.url { open(root: url) }
     }

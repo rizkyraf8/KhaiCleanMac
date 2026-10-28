@@ -4,8 +4,14 @@ enum Module: String, CaseIterable, Identifiable {
     case smartScan, largeFiles, duplicates, spaceLens, uninstaller
 
     enum Section: String, CaseIterable {
-        case clean = "BERSIHKAN"
-        case manage = "KELOLA"
+        case clean, manage
+
+        var title: String {
+            switch self {
+            case .clean: L("BERSIHKAN", "CLEAN UP")
+            case .manage: L("KELOLA", "MANAGE")
+            }
+        }
     }
 
     var id: String { rawValue }
@@ -20,8 +26,8 @@ enum Module: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .smartScan: "Smart Scan"
-        case .largeFiles: "File Besar"
-        case .duplicates: "Duplikat"
+        case .largeFiles: L("File Besar", "Large Files")
+        case .duplicates: L("Duplikat", "Duplicates")
         case .spaceLens: "Space Lens"
         case .uninstaller: "Uninstaller"
         }
@@ -29,21 +35,21 @@ enum Module: String, CaseIterable, Identifiable {
 
     var tagline: String {
         switch self {
-        case .smartScan: "Cache, log & sampah"
-        case .largeFiles: "Yang makan tempat"
-        case .duplicates: "File kembar"
-        case .spaceLens: "Peta isi disk"
-        case .uninstaller: "Hapus app sampai bersih"
+        case .smartScan: L("Cache, log & sampah", "Caches, logs & junk")
+        case .largeFiles: L("Yang makan tempat", "Space hogs")
+        case .duplicates: L("File kembar", "Identical files")
+        case .spaceLens: L("Peta isi disk", "Disk map")
+        case .uninstaller: L("Hapus app sampai bersih", "Remove apps completely")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .smartScan: "Bersihkan cache, log, dan sisa file yang tidak terpakai."
-        case .largeFiles: "Temukan file berukuran besar di folder pribadimu."
-        case .duplicates: "Temukan file dengan isi yang persis sama."
-        case .spaceLens: "Lihat folder mana yang paling banyak makan tempat."
-        case .uninstaller: "Hapus aplikasi beserta file sisa yang ditinggalkannya."
+        case .smartScan: L("Bersihkan cache, log, dan sisa file yang tidak terpakai.", "Clean up caches, logs and leftover files you no longer need.")
+        case .largeFiles: L("Temukan file berukuran besar di folder pribadimu.", "Find big files in your home folder.")
+        case .duplicates: L("Temukan file dengan isi yang persis sama.", "Find files with exactly the same content.")
+        case .spaceLens: L("Lihat folder mana yang paling banyak makan tempat.", "See which folders take up the most space.")
+        case .uninstaller: L("Hapus aplikasi beserta file sisa yang ditinggalkannya.", "Remove apps together with the files they leave behind.")
         }
     }
 
@@ -84,19 +90,19 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .userCache: "Cache Aplikasi"
-        case .userLogs: "Log Aplikasi"
-        case .developer: "Sampah Xcode"
-        case .installers: "Installer Lama"
+        case .userCache: L("Cache Aplikasi", "App Caches")
+        case .userLogs: L("Log Aplikasi", "App Logs")
+        case .developer: L("Sampah Xcode", "Xcode Junk")
+        case .installers: L("Installer Lama", "Old Installers")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .userCache: "File sementara yang dibuat ulang otomatis oleh aplikasi."
-        case .userLogs: "Catatan aktivitas lama yang jarang dibutuhkan."
-        case .developer: "DerivedData, Device Support, dan cache simulator."
-        case .installers: "File .dmg dan .pkg di folder Downloads."
+        case .userCache: L("File sementara yang dibuat ulang otomatis oleh aplikasi.", "Temporary files that apps rebuild automatically.")
+        case .userLogs: L("Catatan aktivitas lama yang jarang dibutuhkan.", "Old activity records you rarely need.")
+        case .developer: L("DerivedData, Device Support, dan cache simulator.", "DerivedData, Device Support and simulator caches.")
+        case .installers: L("File .dmg dan .pkg di folder Downloads.", ".dmg and .pkg files in your Downloads folder.")
         }
     }
 
@@ -158,11 +164,11 @@ enum FileKind: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .video: "Video"
         case .audio: "Audio"
-        case .image: "Gambar"
-        case .archive: "Arsip"
-        case .diskImage: "Disk Image"
-        case .document: "Dokumen"
-        case .other: "Lainnya"
+        case .image: L("Gambar", "Images")
+        case .archive: L("Arsip", "Archives")
+        case .diskImage: L("Disk Image", "Disk Images")
+        case .document: L("Dokumen", "Documents")
+        case .other: L("Lainnya", "Other")
         }
     }
 
