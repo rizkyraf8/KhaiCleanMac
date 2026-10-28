@@ -114,7 +114,9 @@ private struct GeneralTab: View {
                         symbol: "person.crop.circle.badge.checkmark", colors: Palette.mint,
                         title: L("Buka saat login", "Open at login"),
                         caption: loginCaption,
-                        isOn: Binding(get: { loginStatus == .enabled }, set: setLogin)
+                        // A closure, not `set: setLogin`: Swift 6.2's compiler crashes turning a method reference
+                        // into Binding's `@isolated(any)` setter (fixed in later Swift releases).
+                        isOn: Binding(get: { loginStatus == .enabled }, set: { setLogin($0) })
                     )
                     if loginStatus == .requiresApproval {
                         Button(L("Buka Pengaturan Login Items", "Open Login Items Settings")) { LoginItem.openSystemSettings() }
@@ -276,7 +278,7 @@ private struct RemindersTab: View {
                         title: L("Ingatkan saat sampah menumpuk", "Remind me when junk piles up"),
                         caption: L("KhaiCleanMac hanya mengukur dan memberi notifikasi. Tidak ada yang dihapus otomatis.",
                                    "KhaiCleanMac only measures and notifies you. Nothing is ever removed automatically."),
-                        isOn: Binding(get: { settings.remindersEnabled }, set: setReminders)
+                        isOn: Binding(get: { settings.remindersEnabled }, set: { setReminders($0) })
                     )
                     .disabled(!service.isAvailable)
 

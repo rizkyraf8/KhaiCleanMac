@@ -9,7 +9,7 @@ jobs:
   build-and-test:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Use the newest stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -20,7 +20,20 @@ jobs:
         run: swift --version
 
       - name: Build
-        run: swift build
+        run: |
+          set -o pipefail
+          swift build 2>&1 | tee build.log
 
       - name: Test
-        run: swift test
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee test.log
+
+      # Logs need a GitHub login to read; annotations show on the run summary for everyone.
+      - name: Show errors on the run summary
+        if: failure()
+        run: |
+          cat build.log test.log 2>/dev/null \
+            | grep -E "error:|fatal error|note: SmallVector|✘|failed" \
+            | grep -v "^warning" | head -25 \
+            | while IFS= read -r line; do echo "::error::${line}"; done

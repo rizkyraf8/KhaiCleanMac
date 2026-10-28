@@ -211,7 +211,7 @@ private struct StartupRow: View {
                     .help(item.isDisabled ? L("Nyalakan lagi", "Turn back on") : L("Matikan", "Turn off"))
             }
             if item.isEditable {
-                Button(item.kind == .loginItem ? L("Hapus", "Remove") : L("Hapus", "Remove"), action: onRemove)
+                Button(L("Hapus", "Remove"), action: onRemove)
                     .buttonStyle(SoftButtonStyle())
                     .disabled(isBusy)
             }
