@@ -146,10 +146,19 @@ The logo is drawn in code in `Design/LogoArtwork.swift`. The app icon and the si
 
 ## Contributing
 
-Issues and pull requests are welcome. Please keep the safety rules above intact. Anything that removes files has to go through `Trasher`, so the Trash stays the default and the permanent-delete setting is respected, and it has to be confirmed by the user. Please add tests for new removal logic.
+Issues and pull requests are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. In short:
+
+- Keep the safety rules above intact. Anything that removes files goes through `Trasher` and is confirmed by the user, and new removal logic needs tests.
+- Before your first pull request is merged, you sign the [Contributor License Agreement](CLA.md). The bot asks on the pull request and it takes one comment.
 
 ## License
 
 [PolyForm Noncommercial 1.0.0](LICENSE) © 2026 Rizky Aditya Fahreza
+
+KhaiCleanMac is **source-available**, not open source:
+
+- ✅ You may use, study, change and share it for **noncommercial** purposes: personal use, learning, research, hobby projects, and charitable, educational or government organizations.
+- ❌ You may not use it for **commercial** purposes, for example selling it, bundling it with a paid product or using it to provide a paid service.
+- For commercial use, contact the owner through [GitHub](https://github.com/rizkyraf8).
 
 KhaiCleanMac is an independent project. It is not affiliated with or endorsed by MacPaw or CleanMyMac.

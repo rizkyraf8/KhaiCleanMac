@@ -3,6 +3,14 @@
 All notable changes to KhaiCleanMac are listed here.
 The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 
+## [Unreleased]
+
+### Changed
+- **License:** KhaiCleanMac is now source-available under the PolyForm Noncommercial License 1.0.0, for every version. Noncommercial use, study, changes and sharing are allowed; commercial use is not.
+
+### Added
+- Contributing guide, Contributor License Agreement, and pull request and issue templates.
+
 ## [0.4.0] - 2026-10-28
 
 ### Added

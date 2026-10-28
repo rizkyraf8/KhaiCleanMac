@@ -140,10 +140,19 @@ Logo digambar lewat kode di `Design/LogoArtwork.swift`. Ikon aplikasi dan logo d
 
 ## Kontribusi
 
-Issue dan pull request sangat diterima. Mohon pertahankan aturan keamanan di atas: semua fitur yang menghapus file harus lewat `Trasher`, supaya Trash tetap jadi default dan pengaturan hapus permanen dihormati, dan harus dikonfirmasi pengguna. Mohon tambahkan test untuk logika penghapusan yang baru.
+Issue dan pull request sangat diterima! Baca dulu [CONTRIBUTING.md](CONTRIBUTING.md). Singkatnya:
+
+- Pertahankan aturan keamanan di atas: semua penghapusan lewat `Trasher` dan dikonfirmasi pengguna, dan logika penghapusan baru harus punya test.
+- Sebelum pull request pertamamu di-merge, kamu menyetujui [Contributor License Agreement](CLA.md). Bot akan memintanya di pull request, cukup dengan satu komentar.
 
 ## Lisensi
 
 [PolyForm Noncommercial 1.0.0](LICENSE) © 2026 Rizky Aditya Fahreza
+
+KhaiCleanMac bersifat **source-available**, bukan open source:
+
+- ✅ Boleh dipakai, dipelajari, diubah, dan dibagikan untuk keperluan **non-komersial**: pemakaian pribadi, belajar, riset, proyek hobi, serta organisasi nirlaba, pendidikan, atau pemerintah.
+- ❌ Tidak boleh dipakai untuk tujuan **komersial**, misalnya dijual, digabung ke produk berbayar, atau dipakai untuk layanan berbayar.
+- Untuk pemakaian komersial, hubungi pemilik lewat [GitHub](https://github.com/rizkyraf8).
 
 KhaiCleanMac adalah proyek independen. Proyek ini tidak berafiliasi dengan, dan tidak didukung oleh, MacPaw maupun CleanMyMac.

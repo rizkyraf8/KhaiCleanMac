@@ -1,0 +1,20 @@
+name: Feature idea
+description: Suggest something KhaiCleanMac could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The problem or the task, in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could KhaiCleanMac help?
+  - type: textarea
+    id: safety
+    attributes:
+      label: Could it remove something the user needs?
+      description: Anything that removes files has to stay safe. Tell us what should never be touched.

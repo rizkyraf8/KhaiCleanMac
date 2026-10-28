@@ -1,0 +1,44 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Smart Scan
+        2. Click Scan
+        3. ...
+  - type: input
+    id: version
+    attributes:
+      label: KhaiCleanMac version
+      description: Shown at the bottom of the sidebar and in Settings → About.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "macOS 26.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: access
+    attributes:
+      label: Is Full Disk Access on?
+      options: ["Yes", "No", "Not sure"]
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Please don't share file names or paths you'd rather keep private.
