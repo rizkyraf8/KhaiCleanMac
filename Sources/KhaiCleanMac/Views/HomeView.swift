@@ -26,6 +26,7 @@ struct HomeView: View {
                     }
                     .frame(width: 300)
                 }
+                HealthCard()
                 if !hasAccess { accessCard }
                 Text(L("Semua fitur", "All features"))
                     .font(.system(size: 16, weight: .bold, design: .rounded))

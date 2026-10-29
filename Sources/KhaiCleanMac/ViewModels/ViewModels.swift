@@ -148,6 +148,7 @@ final class LargeFilesModel {
     private(set) var files: [LargeFile] = []
     private(set) var visitedCount = 0
     var threshold: SizeThreshold = .mb100
+    var location: ScanLocation = .home
     var filter: FileKind?
     var sort: Sort = .size
     var selected: Set<URL> = []
@@ -181,8 +182,9 @@ final class LargeFilesModel {
         selected = []
         filter = nil
         let minSize = threshold.rawValue
+        let root = location.url
         scanTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let result = LargeFileScanner().scan(minSize: minSize) { visited in
+            let result = LargeFileScanner().scan(minSize: minSize, root: root) { visited in
                 Task { @MainActor in self?.visitedCount = visited }
             }
             guard !Task.isCancelled else { return }

@@ -63,6 +63,13 @@ enum Snapshot {
                 }
                 UpdateChecker.shared.preview(nil, installed: nil)
             }
+            if args.contains("--app-updates") {
+                // Real requests to each app's own update feed; nothing is installed.
+                let appUpdates = AppUpdatesModel()
+                appUpdates.check()
+                while appUpdates.phase != .results { try? await Task.sleep(for: .milliseconds(300)) }
+                await render(ContentView(selection: .appUpdates, appUpdates: appUpdates), name: "appUpdates-results", scheme: scheme, folder: folder, settle: 1.5)
+            }
             if args.contains("--results") {
                 // Mid-progress states, caught while the read-only work is still running.
                 let scanning = SmartScanModel()

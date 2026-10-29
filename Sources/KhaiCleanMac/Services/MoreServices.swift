@@ -59,7 +59,6 @@ struct DuplicateScanner: Sendable {
     }
 
     private func collect(minSize: Int64, root home: URL, progress: (Progress) -> Void) -> [Int64: [(file: DuplicateFile, size: Int64)]] {
-        let library = home.appending(path: "Library").standardizedFileURL.path
         var bySize: [Int64: [(file: DuplicateFile, size: Int64)]] = [:]
         guard let enumerator = FileManager.default.enumerator(
             at: home, includingPropertiesForKeys: Self.keys,
@@ -80,7 +79,7 @@ struct DuplicateScanner: Sendable {
                 return true
             }
             if values.isDirectory == true {
-                if url.standardizedFileURL.path == library || Self.isProtected(url) { enumerator.skipDescendants() }
+                if ScanLocation.skips(url, root: home) || Self.isProtected(url) { enumerator.skipDescendants() }
                 return true
             }
             guard values.isRegularFile == true,

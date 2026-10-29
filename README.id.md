@@ -36,18 +36,20 @@ Unduh versi terbaru KhaiCleanMac di **[rizkyraf.id/projects/khaicleanmac](https:
 
 | Modul | Fungsi |
 |---|---|
-| **Beranda** | Titik awal: kondisi disk dan memori, Smart Scan sekali klik, status Akses Disk Penuh, dan kartu untuk setiap fitur |
+| **Beranda** | Titik awal: kondisi disk dan memori, kesehatan baterai dan SSD, Smart Scan sekali klik, status Akses Disk Penuh, dan kartu untuk setiap fitur |
 | **Smart Scan** | Mencari cache aplikasi (`~/Library/Caches`), log (`~/Library/Logs`), sampah Xcode (DerivedData, Device Support, cache simulator), installer `.dmg`/`.pkg` lama, Downloads lama, salinan lampiran Mail, backup iPhone/iPad dan file `.ipsw`, serta isi Trash. Cache browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) dibersihkan per entri: hanya cache web lama dan Code Cache usang yang dibuang |
-| **File Besar** | Mencari file di atas 50 MB, 100 MB, 500 MB, atau 1 GB di folder pribadi, dengan filter jenis file dan urutan |
-| **Duplikat** | Mencari file yang isinya identik, dan secara default menyimpan salinan yang paling lama |
+| **File Besar** | Mencari file di atas 50 MB, 100 MB, 500 MB, atau 1 GB di folder pribadi atau di disk lain, dengan filter jenis file dan urutan |
+| **Duplikat** | Mencari file yang isinya identik, di folder pribadi atau di disk lain, dan secara default menyimpan salinan yang paling lama |
 | **Developer** | Mencari dependensi proyek lama (`node_modules`, `Pods`, `.build`, `target`) arsip Xcode, serta runtime dan perangkat simulator Xcode (sering puluhan GB; dihapus lewat `simctl` milik Xcode sendiri). Cache package manager (Gradle, npm, Yarn, Cargo, Maven, dll.) dibersihkan per entri: hanya library yang tidak dipakai 30, 60, atau 90 hari yang dihapus, jadi proyek aktif tetap cepat di-build. Juga menampilkan perintah Terminal untuk Homebrew, Docker, dan Go |
-| **Space Lens** | Menampilkan peta treemap isi folder (default: Home). Klik dua kali untuk masuk ke folder, dan pakai breadcrumb untuk kembali |
+| **Privasi** | Menghapus riwayat, cookie, dan isian formulir per browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari), hanya yang kamu centang dan hanya saat browser itu tertutup. Password, bookmark, alamat, dan kartu tidak pernah disentuh |
+| **Space Lens** | Menampilkan peta treemap isi folder atau disk (default: Home). Klik dua kali untuk masuk ke folder, dan pakai breadcrumb untuk kembali |
 | **Uninstaller** | Menghapus aplikasi dari `/Applications` dan `~/Applications` beserta file sisanya (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents, dll.) |
+| **Pembaruan App** | Mencari app yang punya versi lebih baru dengan membaca feed pembaruan Sparkle milik app itu sendiri, lalu membuka app-nya supaya app memasang pembaruannya sendiri. App dari App Store ditampilkan dengan pintasan ke halaman pembaruan App Store |
 | **Ekstensi** | Menyalakan atau mematikan ekstensi aplikasi pihak ketiga (Safari, Finder Sync, menu Bagikan, Quick Look, widget, dll.), dan menghapus plug-in lama, Quick Action, dan screen saver dari `~/Library`. Plug-in di `/Library` hanya ditampilkan |
 | **Riwayat** | Setiap pembersihan dicatat: apa yang dihapus, ukurannya, dan ke mana perginya. Yang masih ada di Trash bisa dikembalikan dengan **Kembalikan**, satu per satu atau satu sesi sekaligus, dan tidak pernah menimpa file baru di lokasi asal |
 | **Login Items** | Menampilkan Login Items, LaunchAgents milikmu (bisa dimatikan atau dihapus), serta agent dan daemon sistem (hanya dilihat), dan menandai yang yatim karena app-nya sudah tidak ada |
 | **Memori** | Menampilkan tekanan memori, rincian RAM, dan pemakaian swap, plus daftar app yang paling banyak memakai RAM (termasuk proses pembantunya) dengan tombol Keluar. Bisa juga melepas cache file dengan `purge`, yang butuh password admin |
-| **Menu bar** | Menampilkan persentase CPU di menu bar, dengan panel berisi CPU, memori, disk, dan baterai. Aplikasi tetap berjalan di sana setelah jendela ditutup |
+| **Menu bar** | Menampilkan persentase CPU di menu bar, dengan panel berisi CPU, memori, disk, baterai, serta kesehatan baterai dan SSD. Aplikasi tetap berjalan di sana setelah jendela ditutup |
 | **Pengingat** | Memeriksa sampah setiap hari, minggu, atau bulan, lalu mengirim notifikasi kalau sudah lebih dari 1, 5, atau 10 GB. Tidak pernah menghapus apa pun sendiri |
 | **Pengaturan** | Bahasa (Bahasa Indonesia atau English), tampilan (Ikuti Sistem, Terang, atau Gelap), buka saat login, menu bar, pengingat, batas umur cache dan Downloads, serta mode "hapus permanen" yang opsional. Buka dengan ⌘, atau dari bagian bawah sidebar |
 | **Panduan awal** | Muncul saat pertama kali dibuka: janji keamanan aplikasi, dan tutorial Akses Disk Penuh langkah demi langkah yang otomatis berubah hijau begitu izin diberikan. Bisa dibuka lagi dari Pengaturan → Tentang |
@@ -72,6 +74,9 @@ Perubahan di setiap versi tercatat di [CHANGELOG.md](CHANGELOG.md). Versi yang s
 - **Uninstaller tidak menampilkan aplikasi bawaan Apple**, dan menolak menghapus aplikasi yang sedang berjalan.
 - **Login Items hanya mengubah milikmu.** Mematikan agent bisa dibatalkan. Agent dan daemon sistem hanya ditampilkan, tidak pernah diubah.
 - **File pribadi tidak pernah dipilih otomatis.** Downloads lama, backup perangkat, installer, dan isi Trash tetap tidak terpilih sampai kamu memilihnya.
+- **Pembersihan privasi harus dipilih sendiri.** Tidak ada yang dicentang otomatis, browser yang sedang terbuka dikunci, dan konfirmasi menyebutkan setiap browser dan jenis datanya. File masuk Trash (bisa dikembalikan dari Riwayat). Isian formulir Chromium dihapus dari dalam database-nya, dan konfirmasinya menyebutkan bahwa itu tidak bisa dikembalikan. Riwayat Firefox satu file dengan bookmark, jadi diserahkan ke Firefox.
+- **Pembaruan App tidak pernah memasang apa pun sendiri.** Fitur ini hanya membaca feed pembaruan publik setiap app (tidak ada data tentang kamu atau app lain yang dikirim), lalu membuka app-nya. Updater milik app itulah yang mengecek tanda tangan unduhannya.
+- **Disk lain dijaga dengan aturan yang sama.** Indeks Spotlight, Trash, backup Time Machine, dan folder sistem di disk itu dilewati dan tidak bisa dihapus. Disk dan disk image yang read-only tidak ditawarkan.
 - **Duplikat ditangani dengan hati-hati:**
   - Symlink dan hard link tidak dianggap salinan.
   - Folder proyek dan bundle (`node_modules`, `Pods`, `build`, `vendor`, `.app`, `.framework`, dll.) dilewati.
@@ -152,7 +157,8 @@ Sources/KhaiCleanMac/
   App/         entry point, pengaturan (bahasa, tampilan), snapshot debug
   Design/      tema (palet, background, kartu), komponen, gambar logo
   Models/      modul, kategori sampah, jenis file, hasil pemindaian
-  Services/    pemindai (sampah, file besar, duplikat, aplikasi, ruang disk),
+  Services/    pemindai (sampah, file besar, duplikat, aplikasi, ruang disk, privasi browser),
+               feed pembaruan app, kesehatan baterai dan disk, disk yang ter-mount,
                pencocokan app yang berjalan, Trash, izin, monitor sistem
   ViewModels/  state @Observable untuk tiap modul
   Views/       sidebar dan satu view per modul, panel menu bar

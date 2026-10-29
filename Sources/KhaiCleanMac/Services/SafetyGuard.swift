@@ -62,6 +62,10 @@ enum SafetyGuard {
             // A disk's own root, such as /Volumes/Backup.
             let components = path.split(separator: "/")
             if components.count == 2, components[0] == "Volumes" { return "volume root \(path)" }
+            // A disk's Spotlight index, Trash, versions store or bootable system, and anything in them.
+            if components.count >= 3, components[0] == "Volumes", ScanLocation.volumeSystemFolders.contains(String(components[2])) {
+                return "disk system folder \(path)"
+            }
             // Only the subtree rule is waived inside the temporary folder (it sits under /private).
             if temporaryRoots.contains(where: { path.hasPrefix($0 + "/") }) { continue }
             if let tree = trees.first(where: { path == $0 || path.hasPrefix($0 + "/") }) {

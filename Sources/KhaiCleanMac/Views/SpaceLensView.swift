@@ -8,12 +8,31 @@ struct SpaceLensView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             ModuleHeader(module: module) {
-                Button {
-                    model.chooseFolder()
-                } label: {
-                    Label(L("Pilih Folder", "Choose Folder"), systemImage: "folder")
+                HStack(spacing: 10) {
+                    if !VolumeList.shared.volumes.isEmpty {
+                        Menu {
+                            ForEach(VolumeList.shared.locations) { location in
+                                Button {
+                                    withAnimation(.smooth) { model.open(root: location.url) }
+                                } label: {
+                                    Label(location.isVolume ? location.name : L("Folder Home", "Home folder"), systemImage: location.symbol)
+                                }
+                            }
+                        } label: {
+                            Label("Disk", systemImage: "externaldrive")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        }
+                        .menuStyle(.button)
+                        .buttonStyle(SoftButtonStyle())
+                        .fixedSize()
+                    }
+                    Button {
+                        model.chooseFolder()
+                    } label: {
+                        Label(L("Pilih Folder", "Choose Folder"), systemImage: "folder")
+                    }
+                    .buttonStyle(SoftButtonStyle())
                 }
-                .buttonStyle(SoftButtonStyle())
             }
 
             breadcrumb
@@ -58,7 +77,7 @@ struct SpaceLensView: View {
                 } label: {
                     Label(
                         url == URL.homeDirectory ? "Home" : url.lastPathComponent,
-                        systemImage: level == 0 ? (url == URL.homeDirectory ? "house.fill" : "folder.fill") : "folder"
+                        systemImage: level == 0 ? rootSymbol(url) : "folder"
                     )
                     .font(.system(size: 12, weight: isLast ? .bold : .medium, design: .rounded))
                     .foregroundStyle(isLast ? Color.primary : Color.secondary)
@@ -71,6 +90,11 @@ struct SpaceLensView: View {
             }
             Spacer()
         }
+    }
+
+    private func rootSymbol(_ url: URL) -> String {
+        if url == URL.homeDirectory { return "house.fill" }
+        return VolumeList.shared.volumes.first { $0.url.standardizedFileURL == url.standardizedFileURL }?.symbol ?? "folder.fill"
     }
 
     @ViewBuilder

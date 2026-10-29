@@ -9,9 +9,12 @@ struct DuplicatesView: View {
         VStack(alignment: .leading, spacing: 20) {
             ModuleHeader(module: module) {
                 HStack(spacing: 10) {
+                    LocationPicker(selection: $model.location)
+                        .disabled(model.phase == .scanning)
                     Text(L("Minimal", "Minimum"))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .fixedSize()
                     Picker(L("Minimal", "Minimum"), selection: $model.minSize) {
                         ForEach(DuplicatesModel.MinSize.allCases) { Text($0.label).tag($0) }
                     }
@@ -54,6 +57,7 @@ struct DuplicatesView: View {
             }
         }
         .toast($model.toast)
+        .onChange(of: model.location) { model.cancel() }
         .alert(Removal.question(L("\(model.selected.count) salinan", "\(model.selected.count) \(model.selected.count == 1 ? "copy" : "copies")")), isPresented: $confirmTrash) {
             Button(Removal.actionTitle, role: .destructive) {
                 Task { await model.moveSelectedToTrash() }

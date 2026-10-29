@@ -25,6 +25,8 @@ enum Palette {
     static let sky = [Color(hex: 0x67D2F5), Color(hex: 0x0EA5E9)]
     static let grape = [Color(hex: 0xC4B5FD), Color(hex: 0x8B5CF6)]
     static let slate = [Color(hex: 0xCBD5E1), Color(hex: 0x94A3B8)]
+    static let aqua = [Color(hex: 0x7DD3FC), Color(hex: 0x34D399)]
+    static let blush = [Color(hex: 0xFBCFE8), Color(hex: 0xFB7185)]
     static let logo = [Color(hex: 0x5EE0C1), Color(hex: 0x6E9BFF), Color(hex: 0xC084FC)]
 }
 

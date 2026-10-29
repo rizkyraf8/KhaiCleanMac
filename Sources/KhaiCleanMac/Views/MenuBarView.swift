@@ -53,6 +53,7 @@ struct MenuBarView: View {
                     fraction: Double(battery.percent) / 100, colors: Palette.leaf
                 )
             }
+            HealthSummaryRow()
 
             Divider()
 

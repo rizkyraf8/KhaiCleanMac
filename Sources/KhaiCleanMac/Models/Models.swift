@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum Module: String, CaseIterable, Identifiable {
-    case home, smartScan, largeFiles, duplicates, developer, spaceLens, uninstaller, extensions, startup, memory, history
+    case home, smartScan, largeFiles, duplicates, developer, privacy, spaceLens, uninstaller, appUpdates, extensions, startup, memory, history
 
     enum Section: String, CaseIterable {
         case overview, clean, manage
@@ -21,8 +21,8 @@ enum Module: String, CaseIterable, Identifiable {
     var section: Section {
         switch self {
         case .home: .overview
-        case .smartScan, .largeFiles, .duplicates, .developer: .clean
-        case .spaceLens, .uninstaller, .extensions, .startup, .memory, .history: .manage
+        case .smartScan, .largeFiles, .duplicates, .developer, .privacy: .clean
+        case .spaceLens, .uninstaller, .appUpdates, .extensions, .startup, .memory, .history: .manage
         }
     }
 
@@ -39,6 +39,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .history: L("Riwayat", "History")
         case .extensions: L("Ekstensi", "Extensions")
         case .uninstaller: "Uninstaller"
+        case .appUpdates: L("Pembaruan App", "App Updates")
+        case .privacy: L("Privasi", "Privacy")
         }
     }
 
@@ -55,6 +57,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .history: L("Yang sudah dibersihkan", "What was cleaned")
         case .extensions: L("Plug-in & ekstensi app", "Plug-ins & app extensions")
         case .uninstaller: L("Hapus app sampai bersih", "Remove apps completely")
+        case .appUpdates: L("Versi baru app kamu", "New versions of your apps")
+        case .privacy: L("Riwayat & cookie browser", "Browser history & cookies")
         }
     }
 
@@ -71,6 +75,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .history: L("Semua yang pernah dibersihkan, dan kembalikan yang masih ada di Trash.", "Everything you've cleaned, and put back what's still in the Trash.")
         case .extensions: L("Atur ekstensi Safari, Finder, widget, Quick Look, dan plug-in lain.", "Manage Safari, Finder, widget and Quick Look extensions and other plug-ins.")
         case .uninstaller: L("Hapus aplikasi beserta file sisa yang ditinggalkannya.", "Remove apps together with the files they leave behind.")
+        case .appUpdates: L("Cari tahu app mana yang punya versi lebih baru.", "Find out which apps have a newer version.")
+        case .privacy: L("Hapus riwayat, cookie, dan isian formulir browser. Hanya yang kamu pilih.", "Clear browser history, cookies and form data. Only what you pick.")
         }
     }
 
@@ -87,6 +93,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .history: "clock.arrow.circlepath"
         case .extensions: "puzzlepiece.extension.fill"
         case .uninstaller: "xmark.bin.fill"
+        case .appUpdates: "arrow.down.app.fill"
+        case .privacy: "hand.raised.fill"
         }
     }
 
@@ -103,6 +111,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .history: Palette.grape
         case .extensions: Palette.sky
         case .uninstaller: Palette.lavender
+        case .appUpdates: Palette.aqua
+        case .privacy: Palette.blush
         }
     }
 }

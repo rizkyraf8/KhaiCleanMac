@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var memory = MemoryModel()
     @State private var startup = StartupModel()
     @State private var extensions = ExtensionsModel()
+    @State private var appUpdates: AppUpdatesModel
+    @State private var privacy = PrivacyModel()
     @Bindable private var router = AppRouter.shared
     @State private var uninstaller: UninstallerModel
 
@@ -18,13 +20,15 @@ struct ContentView: View {
         smartScan: SmartScanModel = SmartScanModel(),
         duplicates: DuplicatesModel = DuplicatesModel(),
         developer: DeveloperModel = DeveloperModel(),
-        uninstaller: UninstallerModel = UninstallerModel()
+        uninstaller: UninstallerModel = UninstallerModel(),
+        appUpdates: AppUpdatesModel = AppUpdatesModel()
     ) {
         _selection = State(initialValue: selection)
         _smartScan = State(initialValue: smartScan)
         _duplicates = State(initialValue: duplicates)
         _developer = State(initialValue: developer)
         _uninstaller = State(initialValue: uninstaller)
+        _appUpdates = State(initialValue: appUpdates)
     }
 
     private func open(_ module: Module) {
@@ -53,6 +57,8 @@ struct ContentView: View {
                 case .history: HistoryView()
                 case .extensions: ExtensionsView(model: extensions)
                 case .uninstaller: UninstallerView(model: uninstaller)
+                case .appUpdates: AppUpdatesView(model: appUpdates)
+                case .privacy: PrivacyView(model: privacy)
                 }
             }
             .padding(.horizontal, 30)

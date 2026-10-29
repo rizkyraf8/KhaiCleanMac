@@ -39,18 +39,20 @@ Get the latest version of KhaiCleanMac at **[rizkyraf.id/projects/khaicleanmac](
 
 | Module | What it does |
 |---|---|
-| **Home** | The starting point: disk and memory at a glance, a one-click Smart Scan, Full Disk Access status and a card for every feature |
+| **Home** | The starting point: disk and memory at a glance, battery and SSD health, a one-click Smart Scan, Full Disk Access status and a card for every feature |
 | **Smart Scan** | Finds app caches (`~/Library/Caches`), logs (`~/Library/Logs`), Xcode leftovers (DerivedData, Device Support, simulator caches), old `.dmg`/`.pkg` installers, old downloads, Mail attachment copies, iPhone/iPad backups and `.ipsw` files, and what's already in the Trash. Browser caches (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) are cleaned entry by entry: only old web cache and obsolete code cache go |
-| **Large Files** | Finds files above 50 MB, 100 MB, 500 MB or 1 GB in your home folder, with type filters and sorting |
-| **Duplicates** | Finds files with byte-identical content and keeps the oldest copy by default |
+| **Large Files** | Finds files above 50 MB, 100 MB, 500 MB or 1 GB in your home folder or on another disk, with type filters and sorting |
+| **Duplicates** | Finds files with byte-identical content, in your home folder or on another disk, and keeps the oldest copy by default |
 | **Developer** | Finds old project dependencies (`node_modules`, `Pods`, `.build`, `target`) Xcode archives, and Xcode simulator runtimes and devices (often tens of GB; removed through Xcode's own `simctl`). Package manager caches (Gradle, npm, Yarn, Cargo, Maven…) are cleaned entry by entry: only libraries unused for 30, 60 or 90 days go, so active projects keep building fast. Also lists Terminal commands for Homebrew, Docker and Go |
-| **Space Lens** | Shows a treemap of any folder (Home by default). Double-click to drill in, use the breadcrumb to go back |
+| **Privacy** | Clears browser history, cookies and form data per browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari), only for what you tick and only while that browser is closed. Passwords, bookmarks, addresses and cards are never touched |
+| **Space Lens** | Shows a treemap of any folder or disk (Home by default). Double-click to drill in, use the breadcrumb to go back |
 | **Uninstaller** | Removes apps from `/Applications` and `~/Applications` together with the files they leave behind (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents and more) |
+| **App Updates** | Finds apps with a newer version by reading each app's own Sparkle update feed, and opens the app so it installs the update itself. App Store apps are listed with a shortcut to the App Store's updates |
 | **Extensions** | Turns third-party app extensions (Safari, Finder Sync, Share menu, Quick Look, widgets…) on or off, and removes old plug-ins, Quick Actions and screen savers from `~/Library`. Plug-ins in `/Library` are shown read-only |
 | **History** | Every cleanup is logged: what was removed, how big it was and where it went. Anything still in the Trash can be put back with **Restore**, one item or a whole cleanup at once, and nothing at the original place is ever overwritten |
 | **Login Items** | Lists login items, your LaunchAgents (turn them off or remove them) and system agents and daemons (read-only), and flags orphans whose app is gone |
 | **Memory** | Shows memory pressure, a RAM breakdown and swap use, and lists the apps using the most RAM (helper processes included) with a Quit button. It can also release cached files with `purge`, which needs an administrator password |
-| **Menu bar** | Shows live CPU usage in the menu bar, plus a panel with CPU, memory, disk and battery. The app keeps running there after you close the window |
+| **Menu bar** | Shows live CPU usage in the menu bar, plus a panel with CPU, memory, disk, battery, and battery and SSD health. The app keeps running there after you close the window |
 | **Reminders** | Checks junk daily, weekly or monthly and sends a notification once it passes 1, 5 or 10 GB. It never removes anything on its own |
 | **Settings** | Language (Bahasa Indonesia or English), appearance (Match System, Light or Dark), open at login, menu bar, reminders, cache and download age limits, and an opt-in "delete permanently" mode. Open it with ⌘, or from the bottom of the sidebar |
 | **Welcome guide** | Shown on first launch: what the app promises, and a step-by-step Full Disk Access tutorial that turns green on its own once access is granted. Open it again from Settings → About |
@@ -75,6 +77,9 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each version. The current v
 - **The Uninstaller skips Apple's built-in apps** and refuses to remove an app while it is running.
 - **Login Items only edits what's yours.** Turning an agent off is reversible. System agents and daemons are shown but never changed.
 - **Personal files are never preselected.** Old downloads, device backups, installers and the Trash stay unselected until you pick them.
+- **Privacy cleanup is opt-in.** Nothing is ticked for you, an open browser is locked, and the confirmation lists every browser and kind of data. Files go to the Trash (restorable from History); Chromium form data is deleted inside its database, and the confirmation says it can't be put back. Firefox history shares a file with bookmarks, so it's left to Firefox.
+- **App Updates never installs anything itself.** It only reads each app's public update feed (nothing about you or your other apps is sent) and opens the app, whose own updater checks the download's signature.
+- **Other disks get the same guard.** A disk's Spotlight index, Trash, Time Machine backups and system folders are skipped and can't be removed, and read-only disks and disk images aren't offered.
 - **Duplicates are handled carefully:**
   - Symlinks and hard links never count as copies.
   - Project and bundle folders (`node_modules`, `Pods`, `build`, `vendor`, `.app`, `.framework`, …) are skipped.
@@ -155,7 +160,8 @@ Sources/KhaiCleanMac/
   App/         entry point, settings (language, appearance), debug snapshots
   Design/      theme (palette, background, cards), components, logo artwork
   Models/      modules, junk categories, file kinds, scan results
-  Services/    scanners (junk, large files, duplicates, apps, disk space),
+  Services/    scanners (junk, large files, duplicates, apps, disk space, browser privacy),
+               app update feeds, battery and disk health, mounted disks,
                running-app matching, Trash, permissions, system monitor
   ViewModels/  @Observable state for each module
   Views/       sidebar and one view per module, menu bar panel

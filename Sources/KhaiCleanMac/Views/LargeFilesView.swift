@@ -9,9 +9,12 @@ struct LargeFilesView: View {
         VStack(alignment: .leading, spacing: 20) {
             ModuleHeader(module: module) {
                 HStack(spacing: 10) {
+                    LocationPicker(selection: $model.location)
+                        .disabled(model.phase == .scanning)
                     Text(L("Minimal", "Minimum"))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .fixedSize()
                     Picker(L("Minimal", "Minimum"), selection: $model.threshold) {
                         ForEach(SizeThreshold.allCases) { Text($0.label).tag($0) }
                     }
@@ -37,8 +40,11 @@ struct LargeFilesView: View {
                     symbol: module.symbol,
                     colors: module.colors,
                     title: L("Cari file yang makan tempat", "Find what's taking up space"),
-                    message: L("Kami akan memeriksa folder pribadimu (Desktop, Documents, Downloads, dan lainnya) untuk file di atas \(model.threshold.label). macOS mungkin meminta izin akses folder.",
-                               "We'll check your home folder (Desktop, Documents, Downloads and more) for files over \(model.threshold.label). macOS may ask for permission to access these folders.")
+                    message: model.location.isVolume
+                        ? L("Kami akan memeriksa disk \(model.location.name) untuk file di atas \(model.threshold.label). File yang dihapus masuk Trash milik disk itu. macOS mungkin meminta izin akses disk.",
+                            "We'll check the \(model.location.name) disk for files over \(model.threshold.label). Removed files go to that disk's own Trash. macOS may ask for permission to access the disk.")
+                        : L("Kami akan memeriksa folder pribadimu (Desktop, Documents, Downloads, dan lainnya) untuk file di atas \(model.threshold.label). macOS mungkin meminta izin akses folder.",
+                            "We'll check your home folder (Desktop, Documents, Downloads and more) for files over \(model.threshold.label). macOS may ask for permission to access these folders.")
                 ) {
                     Button {
                         model.scan()
@@ -54,6 +60,7 @@ struct LargeFilesView: View {
             }
         }
         .toast($model.toast)
+        .onChange(of: model.location) { model.cancel() }
         .alert(Removal.question(L("\(model.selected.count) file", "\(model.selected.count) \(model.selected.count == 1 ? "file" : "files")")), isPresented: $confirmTrash) {
             Button(Removal.actionTitle, role: .destructive) {
                 Task { await model.moveSelectedToTrash() }
@@ -73,7 +80,9 @@ struct LargeFilesView: View {
                     .font(.system(size: 17, weight: .bold, design: .rounded))
                     .contentTransition(.numericText())
                     .animation(.snappy, value: model.visitedCount)
-                Text(L("Folder Library dan isi paket aplikasi dilewati.", "The Library folder and app package contents are skipped."))
+                Text(model.location.isVolume
+                     ? L("Folder sistem disk dan isi paket aplikasi dilewati.", "The disk's system folders and app package contents are skipped.")
+                     : L("Folder Library dan isi paket aplikasi dilewati.", "The Library folder and app package contents are skipped."))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }

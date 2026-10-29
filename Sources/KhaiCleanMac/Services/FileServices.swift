@@ -402,12 +402,11 @@ struct LargeFileScanner: Sendable {
         .contentAccessDateKey, .contentModificationDateKey,
     ]
 
-    /// Walks the home folder (skipping ~/Library, hidden files and package contents).
-    func scan(minSize: Int64, progress: @Sendable (Int) -> Void) -> [LargeFile] {
-        let home = URL.homeDirectory
-        let library = home.appending(path: "Library").standardizedFileURL.path
+    /// Walks the home folder or a disk, skipping hidden files, package contents and system folders
+    /// (~/Library, or a disk's own System, Library and Spotlight folders).
+    func scan(minSize: Int64, root: URL = .homeDirectory, progress: @Sendable (Int) -> Void) -> [LargeFile] {
         guard let enumerator = FileManager.default.enumerator(
-            at: home,
+            at: root,
             includingPropertiesForKeys: Self.keys,
             options: [.skipsHiddenFiles, .skipsPackageDescendants],
             errorHandler: { _, _ in true }
@@ -421,7 +420,7 @@ struct LargeFileScanner: Sendable {
             visited += 1
             if visited % 1_500 == 0 { progress(visited) }
 
-            if url.standardizedFileURL.path == library {
+            if ScanLocation.skips(url, root: root) {
                 enumerator.skipDescendants()
                 return true
             }

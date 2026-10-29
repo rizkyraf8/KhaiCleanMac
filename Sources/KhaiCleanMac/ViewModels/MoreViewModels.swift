@@ -17,6 +17,7 @@ final class DuplicatesModel {
     private(set) var groups: [DuplicateGroup] = []
     private(set) var progress: DuplicateScanner.Progress?
     var minSize: MinSize = .mb1
+    var location: ScanLocation = .home
     var selected: Set<URL> = []
     var toast: ToastMessage?
 
@@ -33,8 +34,9 @@ final class DuplicatesModel {
         progress = nil
         selected = []
         let minSize = minSize.rawValue
+        let root = location.url
         scanTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let result = DuplicateScanner().scan(minSize: minSize) { progress in
+            let result = DuplicateScanner().scan(minSize: minSize, root: root) { progress in
                 Task { @MainActor in self?.progress = progress }
             }
             guard !Task.isCancelled else { return }

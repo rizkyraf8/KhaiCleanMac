@@ -5,6 +5,15 @@ The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATC
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-29
+
+### Added
+- **Battery & disk health** on Home and in the menu bar panel: the battery's maximum capacity compared to new, cycle count (out of the designed 1000) and condition, read from the same source as System Settings › Battery, plus the startup disk's S.M.A.R.T. status. Read once an hour, never changed.
+- **App Updates** module: finds apps with a newer version by reading each app's own Sparkle update feed (betas, other platforms and releases that need a newer macOS are skipped), with release notes and date. **Open** launches the app so its own updater installs and verifies the update; KhaiCleanMac never downloads installers itself. App Store apps get a shortcut to the App Store's updates. Only feed addresses are requested, with no cookies.
+- **Other disks** in Large Files, Duplicates and Space Lens: pick a mounted disk instead of the home folder. Read-only disks, disk images and Time Machine backups aren't offered, and a disk's system folders (Spotlight, Trash, `.fseventsd`, Time Machine, a bootable system) are skipped and can't be removed. The choice falls back to Home when the disk is ejected.
+- **Privacy** module: clear browsing history, cookies and form data per browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari), across all profiles. Nothing is preselected, open browsers are locked and checked again before cleaning, and passwords, bookmarks, addresses and cards are never touched. History and cookie files go to the Trash and are logged in History; Chromium form data is deleted inside its database (only the `autofill` table). Firefox history and Safari form data point to the browser's own setting instead, because they share storage with bookmarks or the Keychain.
+- Tests for battery and disk parsing, appcast reading and version comparison, browser data discovery and form data clearing, and scanning other disks (80 tests in all).
+
 ## [0.5.0] - 2026-10-29
 
 ### Security
@@ -115,6 +124,7 @@ First public release.
 - **Menu bar monitor:** shows CPU, memory, disk and battery.
 - Everything that gets removed goes to the Trash, and nothing is removed without confirmation.
 
+[0.6.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.2.0...v0.3.0
