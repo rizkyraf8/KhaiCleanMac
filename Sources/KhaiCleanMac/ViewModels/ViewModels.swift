@@ -210,12 +210,12 @@ final class LargeFilesModel {
     func moveSelectedToTrash() async {
         let items = selectedFiles.map(\.item)
         let report = await Trasher.removeRecorded(items, source: Module.largeFiles.title)
-        let failed = Set(report.failed.map(\.url))
+        let failed = Set(report.unremoved.map(\.url))
         withAnimation(.snappy) {
             files.removeAll { selected.contains($0.url) && !failed.contains($0.url) }
             selected = failed
         }
-        toast = ToastMessage(text: report.summaryText, symbol: report.failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill", colors: Module.largeFiles.colors)
+        toast = ToastMessage(text: report.summaryText, symbol: report.isComplete ? "checkmark.circle.fill" : "exclamationmark.triangle.fill", colors: Module.largeFiles.colors)
     }
 }
 
@@ -301,9 +301,9 @@ final class UninstallerModel {
         let report = await Trasher.removeRecorded(items, source: Module.uninstaller.title)
         isUninstalling = false
 
-        if report.failed.contains(where: { $0.url == app.url }) {
+        if report.unremoved.contains(where: { $0.url == app.url }) {
             toast = ToastMessage(text: L("\(app.name) tidak bisa dipindahkan. Coba hapus manual dari Finder (butuh izin admin).", "\(app.name) couldn't be moved. Try removing it in Finder (needs an admin password)."), symbol: "exclamationmark.triangle.fill", colors: Palette.berry)
-            leftovers.removeAll { item in selectedLeftovers.contains(item.url) && !report.failed.contains(item) }
+            leftovers.removeAll { item in selectedLeftovers.contains(item.url) && !report.unremoved.contains(item) }
             return
         }
         withAnimation(.snappy) {

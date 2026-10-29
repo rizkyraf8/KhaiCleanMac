@@ -135,7 +135,7 @@ struct HistoryView: View {
             Text(item.size.formattedBytes)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
-            status(item)
+            status(item, in: record)
                 .frame(width: 130, alignment: .trailing)
         }
         .padding(.horizontal, 10)
@@ -144,10 +144,10 @@ struct HistoryView: View {
     }
 
     @ViewBuilder
-    private func status(_ item: RemovedItem) -> some View {
+    private func status(_ item: RemovedItem, in record: CleanRecord) -> some View {
         if item.canRestore {
             Button {
-                Task { await restore(item, in: item) }
+                Task { await restore(item, in: record) }
             } label: {
                 if busy.contains(item.id) { ProgressView().controlSize(.small) } else { Text(L("Kembalikan", "Restore")) }
             }
@@ -171,8 +171,7 @@ struct HistoryView: View {
 
     // MARK: Actions
 
-    private func restore(_ item: RemovedItem, in _: RemovedItem) async {
-        guard let record = history.records.first(where: { $0.items.contains { $0.id == item.id } }) else { return }
+    private func restore(_ item: RemovedItem, in record: CleanRecord) async {
         busy.insert(item.id)
         let result = await history.restore(item.id, in: record.id)
         busy.remove(item.id)

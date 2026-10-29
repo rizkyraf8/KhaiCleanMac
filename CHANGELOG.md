@@ -5,6 +5,20 @@ The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATC
 
 ## [Unreleased]
 
+### Added
+- **Docker cleanup** in Developer. Instead of a command to copy, a Docker card shows what Docker reports as reclaimable and cleans by age: created over **7, 30 or 60 days** ago. Docker removes things itself with `image prune --all` and `builder prune` (plus `container prune` when opted in), filtered with `until`.
+  - **Only this Mac.** The active Docker context must point to this Mac (a Unix socket or localhost) before anything is read or removed, and every command names that context, so a context aimed at a server (`ssh://…`, a remote `tcp://…`) is refused instead of pruned. `DOCKER_HOST` and `DOCKER_CONTEXT` are ignored.
+  - **Stopped containers are opt-in**, listed by name, with a warning: files inside a container that aren't in a volume (a database run without `-v`) go with it. Volumes and running containers are never touched.
+  - Ages count from creation, as Docker keeps no "last used" date, and the card says so. It also explains that Docker Desktop hands space back to macOS gradually.
+  - Every Docker command has a time limit (1 minute to check, 10 minutes to clean), so a stuck engine shows "not responding" instead of a spinner that never ends.
+  - Each cleanup is logged in History as one permanent entry (Docker has no Trash). Works with Docker Desktop, OrbStack, Colima and Rancher Desktop.
+
+### Fixed
+- **Items the safety guard refuses no longer look removed** (code review, issue 1). Large Files, Duplicates, Space Lens, the Uninstaller and Developer took a refused item off the list and showed a green checkmark as if it had gone; Smart Scan's "skipped" note only counted failures. Refused and failed items are now treated alike everywhere: they stay listed and selected, and the result shows a warning.
+- **Login Items with a missing app** (issue 2). One item whose path System Events couldn't read made the whole list fail to load. Each item is now read on its own, and one without a readable path shows up as an orphan.
+- The menu bar monitor's sampling loop ends when the monitor is released (issue 3), History restores an item through its own record instead of searching for it (issue 4), and the Trash staging folder keeps subfolders when a path is spelled through a symlink such as `/private/var` (issue 5), so two files with the same name no longer collide.
+- **CI:** the Intel test step ran the x86_64 tests through Rosetta on an Apple silicon runner and failed there. The Intel tests now run natively on GitHub's `macos-15-intel` runner as a separate job.
+
 ## [0.8.0] - 2026-10-29
 
 ### Added

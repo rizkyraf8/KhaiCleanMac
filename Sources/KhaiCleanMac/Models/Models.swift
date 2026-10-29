@@ -323,6 +323,11 @@ struct CleanReport: Sendable {
     var permanent = false
     /// Staging folders kept because the Trash refused them and some files couldn't go back.
     var keptInStaging: [URL] = []
+
+    /// Everything still in place: items that failed to move and items `SafetyGuard` refused.
+    /// Screens use this, never `failed` alone, so a refused item doesn't vanish from the list as if it went.
+    var unremoved: [CleanItem] { failed + blocked }
+    var isComplete: Bool { failed.isEmpty && blocked.isEmpty }
 }
 
 struct DuplicateFile: Identifiable, Hashable, Sendable {

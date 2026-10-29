@@ -391,16 +391,7 @@ struct DeveloperScanner: Sendable {
                 command: "brew cleanup --prune=all", size: nil
             ))
         }
-        if exists("/Applications/Docker.app", "/usr/local/bin/docker", "/opt/homebrew/bin/docker") {
-            let disk = URL.homeDirectory.appending(path: "Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw")
-            let size = fm.fileExists(atPath: disk.path) ? FileSizer.allocatedSize(of: disk) : 0
-            commands.append(DevCommand(
-                id: "docker", title: "Docker",
-                detail: L("Menghapus container yang sudah berhenti, image tak terpakai, dan build cache. Jalankan saat Docker menyala.",
-                          "Removes stopped containers, unused images and build cache. Run it while Docker is running."),
-                command: "docker system prune", size: size > 0 ? size : nil
-            ))
-        }
+        // Docker has its own card, which cleans through the Docker CLI by age.
         let goModules = URL.homeDirectory.appending(path: "go/pkg/mod")
         if fm.fileExists(atPath: goModules.path) {
             commands.append(DevCommand(

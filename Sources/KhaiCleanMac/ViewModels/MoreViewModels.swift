@@ -86,7 +86,7 @@ final class DuplicatesModel {
             return (items, skipped)
         }.value
         let report = items.isEmpty ? CleanReport() : await Trasher.removeRecorded(items, source: Module.duplicates.title)
-        let failed = Set(report.failed.map(\.url))
+        let failed = Set(report.unremoved.map(\.url))
         let removed = Set(items.map(\.url)).subtracting(failed)
         withAnimation(.snappy) {
             self.groups = groups.compactMap { group in
@@ -101,7 +101,7 @@ final class DuplicatesModel {
             text += L(" · \(skipped.count) dilewati karena berubah sejak dipindai, pindai ulang",
                       " · \(skipped.count) skipped because files changed since the scan, scan again")
         }
-        toast = ToastMessage(text: text, symbol: report.failed.isEmpty && skipped.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+        toast = ToastMessage(text: text, symbol: report.isComplete && skipped.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                              colors: Module.duplicates.colors)
     }
 }
@@ -214,13 +214,13 @@ final class SpaceLensModel {
 
     func moveToTrash(_ item: SpaceItem) async {
         let report = await Trasher.removeRecorded([CleanItem(url: item.url, size: item.size ?? 0)], source: Module.spaceLens.title)
-        if report.failed.isEmpty {
+        if report.isComplete {
             withAnimation(.snappy) { items.removeAll { $0.id == item.id } }
             cache[item.url] = nil
             // Every folder above this one is now smaller than what was cached.
             for url in path { cache[url] = nil }
             selectedID = nil
         }
-        toast = ToastMessage(text: report.summaryText, symbol: report.failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill", colors: Module.spaceLens.colors)
+        toast = ToastMessage(text: report.summaryText, symbol: report.isComplete ? "checkmark.circle.fill" : "exclamationmark.triangle.fill", colors: Module.spaceLens.colors)
     }
 }

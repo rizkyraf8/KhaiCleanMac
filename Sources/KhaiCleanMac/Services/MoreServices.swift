@@ -190,9 +190,11 @@ final class SystemMonitor {
     var memoryFraction: Double { memoryTotal > 0 ? Double(memoryUsed) / Double(memoryTotal) : 0 }
 
     init() {
+        // Ends once the monitor is gone; `self?.sample()` alone would keep a released monitor's loop running.
         Task { [weak self] in
             while !Task.isCancelled {
-                self?.sample()
+                guard let monitor = self else { return }
+                monitor.sample()
                 try? await Task.sleep(for: .seconds(2))
             }
         }

@@ -75,7 +75,7 @@ final class StartupModel {
             CleanHistory.shared.record(report, source: Module.startup.title)
             busyIDs.remove(item.id)
             toast = ToastMessage(text: report.summaryText,
-                                 symbol: report.failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+                                 symbol: report.isComplete ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                                  colors: Module.startup.colors)
             await load()
         }

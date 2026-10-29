@@ -56,7 +56,7 @@ final class ExtensionsModel {
         let report = await Trasher.removeRecorded([CleanItem(url: plugin.url, size: plugin.size)], source: Module.extensions.title)
         busy.remove(plugin.url.path)
         toast = ToastMessage(text: report.summaryText,
-                             symbol: report.failed.isEmpty && report.blocked.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+                             symbol: report.isComplete ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                              colors: Module.extensions.colors)
         await load()
     }

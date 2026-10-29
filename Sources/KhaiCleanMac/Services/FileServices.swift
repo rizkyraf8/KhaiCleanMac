@@ -124,9 +124,8 @@ enum Trasher {
         guard (try? fm.createDirectory(at: staging, withIntermediateDirectories: true)) != nil else { return nil }
 
         var moved: [(from: URL, to: URL, relative: String)] = []
-        let base = item.url.path + "/"
         for file in item.members {
-            let relative = file.path.hasPrefix(base) ? String(file.path.dropFirst(base.count)) : file.lastPathComponent
+            let relative = relativePath(of: file, in: item.url)
             let target = staging.appending(path: relative)
             try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
             if (try? fm.moveItem(at: file, to: target)) != nil { moved.append((file, target, relative)) }
@@ -142,6 +141,16 @@ enum Trasher {
             kept.append(staging)
         }
         return nil
+    }
+
+    /// A member's path inside its item, so files from different subfolders can't collide in staging.
+    /// Paths are compared as written and then with symlinks resolved (`/var` is `/private/var`).
+    static func relativePath(of file: URL, in folder: URL) -> String {
+        for (path, base) in [(file.standardizedFileURL.path, folder.standardizedFileURL.path),
+                             (file.resolvingSymlinksInPath().path, folder.resolvingSymlinksInPath().path)] {
+            if path.hasPrefix(base + "/") { return String(path.dropFirst(base.count + 1)) }
+        }
+        return file.lastPathComponent
     }
 
     /// Two items with the same name cleaned in the same second must not share a staging folder.
