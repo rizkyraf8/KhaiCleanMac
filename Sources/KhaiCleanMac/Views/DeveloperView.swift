@@ -39,8 +39,8 @@ struct DeveloperView: View {
                     symbol: module.symbol,
                     colors: module.colors,
                     title: L("Bersihkan sisa coding", "Clean up coding leftovers"),
-                    message: L("Mencari dependensi proyek, cache package manager, dan arsip Xcode. Untuk cache, hanya library yang tidak dipakai lebih dari \(model.staleAge.rawValue) hari yang dibersihkan, jadi proyek aktif tetap cepat di-build.",
-                               "Looks for project dependencies, package manager caches and Xcode archives. For caches, only libraries unused for \(model.staleAge.rawValue)+ days are cleaned, so active projects still build fast.")
+                    message: L("Mencari dependensi proyek, cache package manager, simulator, dan arsip Xcode. Untuk cache, hanya library yang tidak dipakai lebih dari \(model.staleAge.rawValue) hari yang dibersihkan, jadi proyek aktif tetap cepat di-build.",
+                               "Looks for project dependencies, package manager caches, simulators and Xcode archives. For caches, only libraries unused for \(model.staleAge.rawValue)+ days are cleaned, so active projects still build fast.")
                 ) {
                     Button {
                         model.scan()
@@ -64,7 +64,11 @@ struct DeveloperView: View {
             Button(L("Batal", "Cancel"), role: .cancel) {}
         } message: {
             Text(L("Total \(model.selectedSize.formattedBytes). Library yang masih dipakai tidak disentuh. Tutup dulu editor atau dev server dari proyek terkait. Yang terhapus akan diunduh ulang otomatis kalau ternyata dibutuhkan.",
-                   "Total \(model.selectedSize.formattedBytes). Libraries still in use are left alone. Close any editor or dev server using these projects first. Anything removed is downloaded again if it turns out to be needed."))
+                   "Total \(model.selectedSize.formattedBytes). Libraries still in use are left alone. Close any editor or dev server using these projects first. Anything removed is downloaded again if it turns out to be needed.")
+                 + (model.selectionHasSimulators
+                    ? L("\n\nRuntime dan simulator yang dipilih dihapus permanen lewat Xcode, tidak lewat Trash. Aplikasi dan data di dalam simulator itu ikut terhapus. Runtime bisa diunduh lagi di Xcode › Settings › Components.",
+                        "\n\nThe selected runtimes and simulators are deleted for good through Xcode, not moved to the Trash, along with the apps and data inside them. Runtimes can be downloaded again in Xcode › Settings › Components.")
+                    : ""))
         }
     }
 
@@ -96,8 +100,8 @@ struct DeveloperView: View {
                 symbol: "checkmark.seal.fill",
                 colors: module.colors,
                 title: L("Tidak ada sisa coding", "No coding leftovers"),
-                message: L("Tidak ditemukan dependensi proyek, cache package manager, atau arsip Xcode.",
-                           "No project dependencies, package manager caches or Xcode archives were found.")
+                message: L("Tidak ditemukan dependensi proyek, cache package manager, simulator, atau arsip Xcode.",
+                           "No project dependencies, package manager caches, simulators or Xcode archives were found.")
             ) {
                 Button(L("Pindai Ulang", "Scan Again")) { model.scan() }
                     .buttonStyle(GradientButtonStyle(colors: module.colors))

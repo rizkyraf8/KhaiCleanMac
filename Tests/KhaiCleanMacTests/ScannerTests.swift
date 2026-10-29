@@ -37,6 +37,15 @@ import Testing
         #expect(items.contains { $0.url.pathExtension == "ipsw" })
     }
 
+    @Test func mailAttachmentCopiesAreListed() throws {
+        let temp = try TempFolder()
+        try temp.file("Library/Containers/com.apple.mail/Data/Library/Mail Downloads/1A2B/invoice.pdf", size: 64)
+
+        let items = JunkScanner(home: temp.url).scan(.mailDownloads)
+        #expect(items.map(\.name) == ["1A2B"])
+        #expect(!JunkKind.mailDownloads.selectedByDefault, "Attachments are personal, so they are opt-in")
+    }
+
     @Test func recentDownloadsAndInstallersAreNotOld() throws {
         let temp = try TempFolder()
         try temp.file("Downloads/new.pdf")

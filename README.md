@@ -33,18 +33,21 @@ Get the latest version of KhaiCleanMac at **[rizkyraf.id/projects/khaicleanmac](
 - Needs macOS 15 Sequoia or later on a Mac with Apple silicon (M1 or newer).
 - The app isn't notarized by Apple yet, so macOS may stop it the first time you open it. Open **System Settings › Privacy & Security** and click **Open Anyway**. You only need to do this once.
 - On first launch, the welcome guide walks you through Full Disk Access. It's optional, but some scans need it.
+- **Updates:** once a day the app asks `rizkyraf.id/api/projects/khaicleanmac/latest` for the newest version. When a newer one is out, Home, the sidebar and Settings → About offer an **Update** button: the app downloads the new DMG, checks its SHA-256 checksum, version and code signature, swaps itself and reopens. If any check fails, nothing is replaced and you can download it manually instead. Only the app's version is sent, and you can turn the check off in Settings → About. (In-app updates work from 0.5.0 on; 0.4.0 and older need one manual download.)
 
 ## Features
 
 | Module | What it does |
 |---|---|
 | **Home** | The starting point: disk and memory at a glance, a one-click Smart Scan, Full Disk Access status and a card for every feature |
-| **Smart Scan** | Finds app caches (`~/Library/Caches`), logs (`~/Library/Logs`), Xcode leftovers (DerivedData, Device Support, simulator caches), old `.dmg`/`.pkg` installers, old downloads, iPhone/iPad backups and `.ipsw` files, and what's already in the Trash. Browser caches (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) are cleaned entry by entry: only old web cache and obsolete code cache go |
+| **Smart Scan** | Finds app caches (`~/Library/Caches`), logs (`~/Library/Logs`), Xcode leftovers (DerivedData, Device Support, simulator caches), old `.dmg`/`.pkg` installers, old downloads, Mail attachment copies, iPhone/iPad backups and `.ipsw` files, and what's already in the Trash. Browser caches (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) are cleaned entry by entry: only old web cache and obsolete code cache go |
 | **Large Files** | Finds files above 50 MB, 100 MB, 500 MB or 1 GB in your home folder, with type filters and sorting |
 | **Duplicates** | Finds files with byte-identical content and keeps the oldest copy by default |
-| **Developer** | Finds old project dependencies (`node_modules`, `Pods`, `.build`, `target`) and Xcode archives. Package manager caches (Gradle, npm, Yarn, Cargo, Maven…) are cleaned entry by entry: only libraries unused for 30, 60 or 90 days go, so active projects keep building fast. Also lists Terminal commands for Homebrew, Docker, simulators and Go |
+| **Developer** | Finds old project dependencies (`node_modules`, `Pods`, `.build`, `target`) Xcode archives, and Xcode simulator runtimes and devices (often tens of GB; removed through Xcode's own `simctl`). Package manager caches (Gradle, npm, Yarn, Cargo, Maven…) are cleaned entry by entry: only libraries unused for 30, 60 or 90 days go, so active projects keep building fast. Also lists Terminal commands for Homebrew, Docker and Go |
 | **Space Lens** | Shows a treemap of any folder (Home by default). Double-click to drill in, use the breadcrumb to go back |
 | **Uninstaller** | Removes apps from `/Applications` and `~/Applications` together with the files they leave behind (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents and more) |
+| **Extensions** | Turns third-party app extensions (Safari, Finder Sync, Share menu, Quick Look, widgets…) on or off, and removes old plug-ins, Quick Actions and screen savers from `~/Library`. Plug-ins in `/Library` are shown read-only |
+| **History** | Every cleanup is logged: what was removed, how big it was and where it went. Anything still in the Trash can be put back with **Restore**, one item or a whole cleanup at once, and nothing at the original place is ever overwritten |
 | **Login Items** | Lists login items, your LaunchAgents (turn them off or remove them) and system agents and daemons (read-only), and flags orphans whose app is gone |
 | **Memory** | Shows memory pressure, a RAM breakdown and swap use, and lists the apps using the most RAM (helper processes included) with a Quit button. It can also release cached files with `purge`, which needs an administrator password |
 | **Menu bar** | Shows live CPU usage in the menu bar, plus a panel with CPU, memory, disk and battery. The app keeps running there after you close the window |
@@ -105,6 +108,17 @@ open build/KhaiCleanMac.app
 `build-app.sh` compiles a release build, generates the app icon and puts together `build/KhaiCleanMac.app`. While developing you can also use `swift run`, or open `Package.swift` in Xcode.
 
 If you use [swiftly](https://github.com/swiftlang/swiftly), the `.swift-version` file makes it use Xcode's Swift toolchain in this folder.
+
+### Make a DMG
+
+```bash
+./scripts/make-dmg.sh            # builds the app first
+./scripts/make-dmg.sh --skip-build   # reuses build/KhaiCleanMac.app
+```
+
+This creates `build/KhaiCleanMac-<version>.dmg` and a `.sha256` checksum next to it. Opening the DMG shows the app, an **Applications** shortcut to drag it onto, and a background with an arrow and install notes.
+
+Arranging that window needs permission to control Finder. Run the script from Terminal and allow it when macOS asks, or turn it on in **System Settings › Privacy & Security › Automation**. Without that permission the DMG still works, but Finder uses its default layout.
 
 ### Full Disk Access
 

@@ -67,6 +67,8 @@ final class AppSettings: @unchecked Sendable {
         static let deletesPermanently = "deletesPermanently"
         static let downloadsAge = "downloadsAge"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
+        static let checksForUpdates = "checksForUpdates"
+        static let lastUpdateCheck = "lastUpdateCheck"
         static let legacyMigrated = "legacyPreferencesMigrated"
 
         static let all = [language, appearance, keepInMenuBar, remindersEnabled,
@@ -110,6 +112,15 @@ final class AppSettings: @unchecked Sendable {
         didSet { save(chromeCacheAge.rawValue, forKey: Keys.chromeCacheAge) }
     }
 
+    /// Asks rizkyraf.id once a day whether a newer version exists. On by default.
+    var checksForUpdates: Bool {
+        didSet { save(checksForUpdates, forKey: Keys.checksForUpdates) }
+    }
+
+    var lastUpdateCheck: Date? {
+        didSet { save(lastUpdateCheck, forKey: Keys.lastUpdateCheck) }
+    }
+
     var hasCompletedOnboarding: Bool {
         didSet { save(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) }
     }
@@ -144,6 +155,8 @@ final class AppSettings: @unchecked Sendable {
         deletesPermanently = defaults.bool(forKey: Keys.deletesPermanently)
         downloadsAge = DownloadsAge(rawValue: defaults.integer(forKey: Keys.downloadsAge)) ?? .days90
         hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
+        checksForUpdates = defaults.object(forKey: Keys.checksForUpdates) as? Bool ?? true
+        lastUpdateCheck = defaults.object(forKey: Keys.lastUpdateCheck) as? Date
     }
 
     private static func migrateLegacyPreferences(into defaults: UserDefaults) {

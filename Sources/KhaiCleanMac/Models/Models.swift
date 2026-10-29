@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum Module: String, CaseIterable, Identifiable {
-    case home, smartScan, largeFiles, duplicates, developer, spaceLens, uninstaller, startup, memory
+    case home, smartScan, largeFiles, duplicates, developer, spaceLens, uninstaller, extensions, startup, memory, history
 
     enum Section: String, CaseIterable {
         case overview, clean, manage
@@ -22,7 +22,7 @@ enum Module: String, CaseIterable, Identifiable {
         switch self {
         case .home: .overview
         case .smartScan, .largeFiles, .duplicates, .developer: .clean
-        case .spaceLens, .uninstaller, .startup, .memory: .manage
+        case .spaceLens, .uninstaller, .extensions, .startup, .memory, .history: .manage
         }
     }
 
@@ -36,6 +36,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .home: L("Beranda", "Home")
         case .startup: "Login Items"
         case .memory: L("Memori", "Memory")
+        case .history: L("Riwayat", "History")
+        case .extensions: L("Ekstensi", "Extensions")
         case .uninstaller: "Uninstaller"
         }
     }
@@ -50,6 +52,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .home: L("Ringkasan & semua fitur", "Overview & all features")
         case .startup: L("Yang jalan saat login", "What starts at login")
         case .memory: L("RAM & app terboros", "RAM & heavy apps")
+        case .history: L("Yang sudah dibersihkan", "What was cleaned")
+        case .extensions: L("Plug-in & ekstensi app", "Plug-ins & app extensions")
         case .uninstaller: L("Hapus app sampai bersih", "Remove apps completely")
         }
     }
@@ -59,11 +63,13 @@ enum Module: String, CaseIterable, Identifiable {
         case .smartScan: L("Bersihkan cache, log, dan sisa file yang tidak terpakai.", "Clean up caches, logs and leftover files you no longer need.")
         case .largeFiles: L("Temukan file berukuran besar di folder pribadimu.", "Find big files in your home folder.")
         case .duplicates: L("Temukan file dengan isi yang persis sama.", "Find files with exactly the same content.")
-        case .developer: L("Bersihkan dependensi proyek lama, cache package manager, dan arsip Xcode.", "Clean up old project dependencies, package manager caches and Xcode archives.")
+        case .developer: L("Bersihkan dependensi proyek lama, cache package manager, simulator, dan arsip Xcode.", "Clean up old project dependencies, package manager caches, simulators and Xcode archives.")
         case .spaceLens: L("Lihat folder mana yang paling banyak makan tempat.", "See which folders take up the most space.")
         case .home: L("Ringkasan kondisi Mac dan semua fitur KhaiCleanMac.", "An overview of your Mac and every KhaiCleanMac feature.")
         case .startup: L("Atur app dan agent yang otomatis jalan saat login, dan bersihkan yang yatim.", "Manage the apps and agents that start at login, and clean up orphans.")
         case .memory: L("Lihat tekanan memori dan app yang paling banyak memakai RAM.", "See memory pressure and the apps using the most RAM.")
+        case .history: L("Semua yang pernah dibersihkan, dan kembalikan yang masih ada di Trash.", "Everything you've cleaned, and put back what's still in the Trash.")
+        case .extensions: L("Atur ekstensi Safari, Finder, widget, Quick Look, dan plug-in lain.", "Manage Safari, Finder, widget and Quick Look extensions and other plug-ins.")
         case .uninstaller: L("Hapus aplikasi beserta file sisa yang ditinggalkannya.", "Remove apps together with the files they leave behind.")
         }
     }
@@ -78,6 +84,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .home: "house.fill"
         case .startup: "power"
         case .memory: "memorychip.fill"
+        case .history: "clock.arrow.circlepath"
+        case .extensions: "puzzlepiece.extension.fill"
         case .uninstaller: "xmark.bin.fill"
         }
     }
@@ -92,6 +100,8 @@ enum Module: String, CaseIterable, Identifiable {
         case .home: Palette.logo
         case .startup: Palette.sunny
         case .memory: Palette.leaf
+        case .history: Palette.grape
+        case .extensions: Palette.sky
         case .uninstaller: Palette.lavender
         }
     }
@@ -110,13 +120,15 @@ struct CleanItem: Identifiable, Hashable, Sendable {
     var members: [URL] = []
     /// Items that are already in the Trash can only be deleted for good.
     var removesPermanently = false
+    /// Matched only by a guess (e.g. a folder named like the app), so it's never preselected.
+    var isGuess = false
 
     var id: URL { url }
     var name: String { title ?? url.lastPathComponent }
 }
 
 enum JunkKind: String, CaseIterable, Identifiable, Sendable {
-    case userCache, browsers, userLogs, developer, installers, oldDownloads, iosBackups, trash
+    case userCache, browsers, userLogs, developer, installers, oldDownloads, mailDownloads, iosBackups, trash
 
     var id: String { rawValue }
 
@@ -128,6 +140,7 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .developer: L("Sampah Xcode", "Xcode Junk")
         case .installers: L("Installer Lama", "Old Installers")
         case .oldDownloads: L("Downloads Lama", "Old Downloads")
+        case .mailDownloads: L("Lampiran Mail", "Mail Attachments")
         case .iosBackups: L("Backup & Update iOS", "iOS Backups & Updates")
         case .trash: L("Isi Trash", "Trash")
         }
@@ -141,6 +154,7 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .developer: L("DerivedData, Device Support, dan cache simulator.", "DerivedData, Device Support and simulator caches.")
         case .installers: L("File .dmg dan .pkg di folder Downloads.", ".dmg and .pkg files in your Downloads folder.")
         case .oldDownloads: L("File di Downloads yang sudah lama tidak dibuka.", "Files in Downloads you haven't opened in a long time.")
+        case .mailDownloads: L("Salinan lampiran yang pernah dibuka dari Mail. Lampiran aslinya tetap ada di email.", "Copies of attachments opened from Mail. The originals stay in your email.")
         case .iosBackups: L("Backup iPhone/iPad lama dan file update iOS (.ipsw).", "Old iPhone/iPad backups and iOS update files (.ipsw).")
         case .trash: L("Yang sudah ada di Trash. Dihapus permanen.", "What's already in the Trash. Deleted permanently.")
         }
@@ -154,6 +168,7 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .developer: "hammer.fill"
         case .installers: "shippingbox.fill"
         case .oldDownloads: "arrow.down.circle.fill"
+        case .mailDownloads: "envelope.fill"
         case .iosBackups: "iphone"
         case .trash: "trash.fill"
         }
@@ -167,6 +182,7 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .developer: Palette.ocean
         case .installers: Palette.candy
         case .oldDownloads: Palette.peach
+        case .mailDownloads: Palette.ocean
         case .iosBackups: Palette.lavender
         case .trash: Palette.berry
         }
@@ -176,12 +192,12 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
     var selectedByDefault: Bool {
         switch self {
         case .userCache, .browsers, .userLogs, .developer: true
-        case .installers, .oldDownloads, .iosBackups, .trash: false
+        case .installers, .oldDownloads, .mailDownloads, .iosBackups, .trash: false
         }
     }
 
     /// macOS only lets the app read these places with Full Disk Access.
-    var needsFullDiskAccess: Bool { self == .iosBackups || self == .trash }
+    var needsFullDiskAccess: Bool { self == .iosBackups || self == .trash || self == .mailDownloads }
 }
 
 struct JunkCategory: Identifiable, Sendable {
@@ -289,6 +305,10 @@ struct CleanReport: Sendable {
     var movedCount = 0
     var movedSize: Int64 = 0
     var failed: [CleanItem] = []
+    /// Items `SafetyGuard` refused to touch (protected locations).
+    var blocked: [CleanItem] = []
+    /// What was removed and where it went, for the cleanup history.
+    var removed: [RemovedItem] = []
     /// True when items were deleted for good instead of moved to the Trash.
     var permanent = false
 }
@@ -319,4 +339,40 @@ struct SpaceItem: Identifiable, Hashable, Sendable {
 
     var id: URL { url }
     var name: String { url.lastPathComponent }
+}
+
+/// One removed item as kept in the cleanup history, with enough to put it back from the Trash.
+struct RemovedItem: Codable, Identifiable, Hashable, Sendable {
+    var id = UUID()
+    let name: String
+    let originalPath: String
+    let size: Int64
+    /// Where it went in the Trash; nil when it was deleted permanently.
+    let trashedPath: String?
+    /// For items made of many files: their paths relative to `originalPath`, kept at the same
+    /// relative paths inside the trashed folder.
+    let memberPaths: [String]
+    var restoredAt: Date?
+
+    init(_ item: CleanItem, trashedTo: URL?, memberPaths: [String]) {
+        name = item.name
+        originalPath = item.url.path
+        size = item.size
+        trashedPath = trashedTo?.path
+        self.memberPaths = memberPaths
+    }
+
+    var canRestore: Bool { trashedPath != nil && restoredAt == nil }
+}
+
+/// One cleanup run: which module, when, and what it removed.
+struct CleanRecord: Codable, Identifiable, Sendable {
+    var id = UUID()
+    let date: Date
+    let source: String
+    let permanent: Bool
+    var items: [RemovedItem]
+
+    var totalSize: Int64 { items.reduce(0) { $0 + $1.size } }
+    var restorableCount: Int { items.count(where: \.canRestore) }
 }

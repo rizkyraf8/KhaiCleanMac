@@ -72,6 +72,7 @@ final class StartupModel {
             await loadLoginItems()
         } else {
             let report = await Task.detached(priority: .userInitiated) { StartupActions.remove(item) }.value
+            CleanHistory.shared.record(report, source: Module.startup.title)
             busyIDs.remove(item.id)
             toast = ToastMessage(text: report.summaryText,
                                  symbol: report.failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",

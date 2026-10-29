@@ -16,6 +16,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                UpdateBanner()
                 if settings.deletesPermanently { permanentBanner }
                 HStack(alignment: .top, spacing: 16) {
                     scanCard

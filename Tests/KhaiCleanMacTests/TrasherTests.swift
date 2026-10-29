@@ -13,6 +13,7 @@ private func fakeTrash(into bin: URL) -> Trasher.TrashAction {
             copy += 1
         }
         try FileManager.default.moveItem(at: url, to: target)
+        return target
     }
 }
 
@@ -65,7 +66,7 @@ private func fakeTrash(into bin: URL) -> Trasher.TrashAction {
 
         struct Refused: Error {}
         let report = Trasher.remove([CleanItem(url: base, size: 16, members: [entry])], permanently: false,
-                                    stagingRoot: staging, trash: { _ in throw Refused() })
+                                    stagingRoot: staging, trash: { _ -> URL? in throw Refused() })
 
         #expect(report.movedCount == 0)
         #expect(report.failed.count == 1)

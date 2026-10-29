@@ -375,7 +375,31 @@ private struct RemindersTab: View {
 }
 
 private struct AboutTab: View {
+    @Bindable private var settings = AppSettings.shared
+
     var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsSection(title: L("Pembaruan", "Updates"), symbol: "arrow.down.circle") {
+                VStack(spacing: 0) {
+                    UpdateStatusCard()
+                        .padding(.vertical, 6)
+                    Divider().padding(.vertical, 6)
+                    ToggleRow(
+                        symbol: "clock.arrow.circlepath", colors: Palette.lavender,
+                        title: L("Cek pembaruan otomatis", "Check for updates automatically"),
+                        caption: L("Sekali sehari ke rizkyraf.id. Yang dikirim hanya versi aplikasi, tanpa data pribadi.",
+                                   "Once a day, from rizkyraf.id. Only the app version is sent, no personal data."),
+                        isOn: $settings.checksForUpdates
+                    )
+                }
+                .softCard(padding: 14, radius: 16)
+            }
+            aboutSection
+        }
+        .task { await UpdateChecker.shared.checkIfDue() }
+    }
+
+    private var aboutSection: some View {
         SettingsSection(title: L("Tentang", "About"), symbol: "info.circle") {
             VStack(spacing: 0) {
                 InfoRow(title: L("Versi", "Version"), value: "\(AppInfo.version) (\(AppInfo.build))")

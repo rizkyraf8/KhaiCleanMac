@@ -58,6 +58,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         ReminderService.shared.start()
+        Task { await UpdateChecker.shared.checkIfDue() }
+    }
+
+    /// The app can stay open in the menu bar for days, so the daily check also runs on return.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { await UpdateChecker.shared.checkIfDue() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

@@ -78,7 +78,7 @@ final class SmartScanModel {
         }
         skippedApps = skipped.sorted()
         withAnimation(.smooth) { phase = .cleaning }
-        report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
+        report = await Trasher.removeRecorded(items, source: Module.smartScan.title)
         withAnimation(.smooth) { phase = .done }
     }
 
@@ -207,7 +207,7 @@ final class LargeFilesModel {
 
     func moveSelectedToTrash() async {
         let items = selectedFiles.map(\.item)
-        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
+        let report = await Trasher.removeRecorded(items, source: Module.largeFiles.title)
         let failed = Set(report.failed.map(\.url))
         withAnimation(.snappy) {
             files.removeAll { selected.contains($0.url) && !failed.contains($0.url) }
@@ -277,7 +277,8 @@ final class UninstallerModel {
             guard selectedID == app.id else { return }
             withAnimation(.snappy) {
                 leftovers = found
-                selectedLeftovers = Set(found.map(\.url))
+                // Name-based guesses stay unticked; the user opts in after reading the path.
+                selectedLeftovers = Set(found.filter { !$0.isGuess }.map(\.url))
                 isLoadingLeftovers = false
             }
         }
@@ -295,7 +296,7 @@ final class UninstallerModel {
         isUninstalling = true
         let appItem = CleanItem(url: app.url, size: sizes[app.url] ?? 0)
         let items = [appItem] + leftovers.filter { selectedLeftovers.contains($0.url) }
-        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
+        let report = await Trasher.removeRecorded(items, source: Module.uninstaller.title)
         isUninstalling = false
 
         if report.failed.contains(where: { $0.url == app.url }) {
@@ -323,6 +324,7 @@ extension CleanReport {
             : L("\(movedCount) item (\(movedSize.formattedBytes)) dipindahkan ke Trash",
                 "\(movedCount) \(movedCount == 1 ? "item" : "items") (\(movedSize.formattedBytes)) moved to the Trash")
         if !failed.isEmpty { text += L(" · \(failed.count) gagal", " · \(failed.count) failed") }
+        if !blocked.isEmpty { text += L(" · \(blocked.count) dilindungi, dilewati", " · \(blocked.count) protected, skipped") }
         return text
     }
 }

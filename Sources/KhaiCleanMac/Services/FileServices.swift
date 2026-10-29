@@ -44,9 +44,14 @@ enum FileSizer {
 }
 
 enum Trasher {
-    typealias TrashAction = @Sendable (URL) throws -> Void
+    /// Moves a file to the Trash and returns where it ended up there (if known).
+    typealias TrashAction = @Sendable (URL) throws -> URL?
 
-    static let systemTrash: TrashAction = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }
+    static let systemTrash: TrashAction = { url in
+        var resulting: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
+        return resulting as URL?
+    }
     static var defaultStagingRoot: URL {
         URL.homeDirectory.appending(path: "Library/Caches/\(AppInfo.bundleID)/Trash staging")
     }
@@ -66,21 +71,32 @@ enum Trasher {
         _ items: [CleanItem],
         permanently: Bool,
         stagingRoot: URL = defaultStagingRoot,
+        home: URL = .homeDirectory,
         trash: TrashAction = systemTrash
     ) -> CleanReport {
         var report = CleanReport(permanent: permanently)
-        for item in items {
-            let removed: Bool
-            if permanently || item.removesPermanently {
-                removed = deletePermanently(item)
-            } else if item.members.isEmpty {
-                removed = (try? trash(item.url)) != nil
+        for var item in items {
+            // Never trust the caller: protected locations are refused here, whatever picked them.
+            if item.members.isEmpty {
+                guard SafetyGuard.isAllowed(item.url, home: home) else { report.blocked.append(item); continue }
             } else {
-                removed = trashMembers(of: item, stagingRoot: stagingRoot, trash: trash)
+                item.members = item.members.filter { SafetyGuard.isAllowed($0, home: home) }
+                guard !item.members.isEmpty else { report.blocked.append(item); continue }
             }
-            if removed {
+            // nil: failed. Otherwise what History needs to put it back (no Trash location when deleted).
+            let record: RemovedItem?
+            if permanently || item.removesPermanently {
+                record = deletePermanently(item) ? RemovedItem(item, trashedTo: nil, memberPaths: []) : nil
+            } else if item.members.isEmpty {
+                record = (try? trash(item.url)).map { RemovedItem(item, trashedTo: $0, memberPaths: []) }
+            } else {
+                record = trashMembers(of: item, stagingRoot: stagingRoot, trash: trash)
+                    .map { RemovedItem(item, trashedTo: $0.folder, memberPaths: $0.relativePaths) }
+            }
+            if let record {
                 report.movedCount += 1
                 report.movedSize += item.size
+                report.removed.append(record)
             } else {
                 report.failed.append(item)
             }
@@ -97,26 +113,26 @@ enum Trasher {
     /// Gathers many small files (such as single cache entries) into one dated folder and trashes
     /// that folder, so the Trash gets one tidy item instead of thousands. Paths inside the folder
     /// mirror the originals, so files can still be put back by hand.
-    private static func trashMembers(of item: CleanItem, stagingRoot: URL, trash: TrashAction) -> Bool {
+    private static func trashMembers(of item: CleanItem, stagingRoot: URL, trash: TrashAction) -> (folder: URL?, relativePaths: [String])? {
         let fm = FileManager.default
         let stamp = Date().formatted(.verbatim("\(year: .defaultDigits)-\(month: .twoDigits)-\(day: .twoDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)).\(minute: .twoDigits).\(second: .twoDigits)", timeZone: .current, calendar: .current))
         let staging = uniqueURL(stagingRoot.appending(path: "\(item.name.replacingOccurrences(of: "/", with: "-")) \(stamp)"))
-        guard (try? fm.createDirectory(at: staging, withIntermediateDirectories: true)) != nil else { return false }
+        guard (try? fm.createDirectory(at: staging, withIntermediateDirectories: true)) != nil else { return nil }
 
-        var moved: [(from: URL, to: URL)] = []
+        var moved: [(from: URL, to: URL, relative: String)] = []
         let base = item.url.path + "/"
         for file in item.members {
             let relative = file.path.hasPrefix(base) ? String(file.path.dropFirst(base.count)) : file.lastPathComponent
             let target = staging.appending(path: relative)
             try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-            if (try? fm.moveItem(at: file, to: target)) != nil { moved.append((file, target)) }
+            if (try? fm.moveItem(at: file, to: target)) != nil { moved.append((file, target, relative)) }
         }
 
-        if !moved.isEmpty, (try? trash(staging)) != nil { return true }
+        if !moved.isEmpty, let trashed = try? trash(staging) { return (trashed, moved.map(\.relative)) }
         // Nothing moved, or the Trash refused: put every file back where it came from.
         for pair in moved { try? fm.moveItem(at: pair.to, to: pair.from) }
         try? fm.removeItem(at: staging)
-        return false
+        return nil
     }
 
     /// Two items with the same name cleaned in the same second must not share a staging folder.
@@ -168,6 +184,13 @@ struct JunkScanner: Sendable {
     /// Cache folders shared by several apps of one vendor (Google holds Chrome and Android Studio).
     /// They are listed per app, so one open app doesn't lock the others and one isn't removed with another.
     private static let vendorFolders: Set<String> = ["Google", "Mozilla", "JetBrains", "Microsoft", "Adobe", "BraveSoftware"]
+    /// Caches that background system services are using right now, which "app is open" locking can't see:
+    /// in-flight background downloads, iCloud and iCloud Drive, Family Sharing, Home and Music.
+    /// Removing them loses work in progress or forces a heavy re-sync, so they are never offered.
+    static let protectedCaches: Set<String> = [
+        "com.apple.nsurlsessiond", "CloudKit", "com.apple.bird", "com.apple.cloudd", "com.apple.icloudwebd",
+        "com.apple.iCloudHelper", "com.apple.itunescloudd", "FamilyCircle", "com.apple.homed", "com.apple.akd",
+    ]
     private static let developerFolders = [
         "Developer/Xcode/DerivedData",
         "Developer/Xcode/iOS DeviceSupport",
@@ -191,6 +214,8 @@ struct JunkScanner: Sendable {
             items = installers()
         case .oldDownloads:
             items = oldDownloads()
+        case .mailDownloads:
+            items = mailDownloads()
         case .iosBackups:
             items = iosBackups()
         case .trash:
@@ -220,6 +245,22 @@ struct JunkScanner: Sendable {
             let when = lastUsed.formatted(Date.RelativeFormatStyle(presentation: .named).locale(AppSettings.shared.locale))
             return CleanItem(url: url, size: FileSizer.allocatedSize(of: url),
                              detail: L("Terakhir dipakai \(when)", "Last used \(when)"))
+        }
+    }
+
+    /// Attachments Mail copied out when they were opened or previewed. The messages keep the originals,
+    /// so these copies are safe to remove; Mail makes a new one if the attachment is opened again.
+    private func mailDownloads() -> [CleanItem] {
+        let folder = library("Containers/com.apple.mail/Data/Library/Mail Downloads")
+        let keys: Set<URLResourceKey> = [.contentAccessDateKey, .contentModificationDateKey]
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles])) ?? []
+        return urls.map { url in
+            let values = try? url.resourceValues(forKeys: keys)
+            let lastUsed = [values?.contentAccessDate, values?.contentModificationDate].compactMap { $0 }.max()
+            let when = lastUsed?.formatted(Date.RelativeFormatStyle(presentation: .named).locale(AppSettings.shared.locale))
+            return CleanItem(url: url, size: FileSizer.allocatedSize(of: url),
+                             detail: when.map { L("Dibuka \($0)", "Opened \($0)") })
         }
     }
 
@@ -267,7 +308,7 @@ struct JunkScanner: Sendable {
 
     private func appCaches() -> [CleanItem] {
         let caches = library("Caches")
-        return children(of: caches, excluding: Browser.ownedCacheFolders.union([AppInfo.bundleID])).flatMap { item -> [CleanItem] in
+        return children(of: caches, excluding: Browser.ownedCacheFolders.union(Self.protectedCaches).union([AppInfo.bundleID])).flatMap { item -> [CleanItem] in
             let vendor = item.url.lastPathComponent
             guard Self.vendorFolders.contains(vendor) else { return [item] }
             return children(of: item.url)
@@ -327,6 +368,8 @@ struct RunningAppMatcher: Sendable {
             // Old headless temp folders don't belong to the browser the user has open.
             guard let browser = Browser.owning(item.url) else { return nil }
             return apps.first { browser.bundleIDs.contains($0.bundleID) }
+        case .mailDownloads:
+            return apps.first { $0.bundleID == "com.apple.mail" }
         case .oldDownloads, .iosBackups, .trash:
             return nil
         case .userCache, .userLogs:
@@ -414,17 +457,23 @@ struct AppScanner: Sendable {
         return apps.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    /// Files an app leaves behind in ~/Library, matched by bundle ID or app name.
-    func leftovers(for app: InstalledApp) -> [CleanItem] {
-        let library = URL.homeDirectory.appending(path: "Library")
+    /// Files an app leaves behind in ~/Library.
+    ///
+    /// The bundle ID and names come from the app's own Info.plist, so they are untrusted input: an app
+    /// named "../../Documents" or with an empty or tiny ID must not be able to point at other data.
+    /// Matches by bundle ID are exact; folders matched only by the app's name are marked as guesses.
+    func leftovers(for app: InstalledApp, home: URL = .homeDirectory) -> [CleanItem] {
         let id = app.bundleID
-        var candidates: [URL] = []
-        func add(_ subpath: String) { candidates.append(library.appending(path: subpath)) }
+        // Without a well-formed ID nothing can be matched safely, so only the app itself goes.
+        guard Self.isValidBundleID(id) else { return [] }
 
-        for name in [id] + app.searchNames where name.count >= 3 {
-            add("Application Support/\(name)")
-            add("Caches/\(name)")
-            add("Logs/\(name)")
+        let library = home.appending(path: "Library")
+        var candidates: [(url: URL, isGuess: Bool)] = []
+        func add(_ subpath: String, guess: Bool = false) { candidates.append((library.appending(path: subpath), guess)) }
+
+        for folder in ["Application Support", "Caches", "Logs"] {
+            add("\(folder)/\(id)")
+            for name in app.searchNames where Self.isSafeName(name) { add("\(folder)/\(name)", guess: true) }
         }
         add("Preferences/\(id).plist")
         add("Containers/\(id)")
@@ -434,15 +483,58 @@ struct AppScanner: Sendable {
         add("HTTPStorages/\(id).binarycookies")
         add("WebKit/\(id)")
         add("Cookies/\(id).binarycookies")
-        candidates += entries(in: library.appending(path: "Group Containers")) { $0.contains(id) }
-        candidates += entries(in: library.appending(path: "LaunchAgents")) { $0.hasPrefix(id) }
-        candidates += entries(in: library.appending(path: "Preferences/ByHost")) { $0.hasPrefix(id) }
+        // "group.<id>", "<TEAM>.<id>" or "<TEAM>.<id>.<suffix>", never a mere substring.
+        candidates += entries(in: library.appending(path: "Group Containers")) {
+            $0 == id || $0 == "group.\(id)" || $0.hasSuffix(".\(id)") || $0.contains(".\(id).")
+        }.map { ($0, false) }
+        candidates += entries(in: library.appending(path: "LaunchAgents")) {
+            $0 == "\(id).plist" || $0.hasPrefix("\(id).")
+        }.map { ($0, false) }
+        candidates += entries(in: library.appending(path: "Preferences/ByHost")) { $0.hasPrefix("\(id).") }.map { ($0, false) }
 
         var seen = Set<String>()
+        let libraryPath = library.resolvingSymlinksInPath().path
         return candidates
-            .filter { FileManager.default.fileExists(atPath: $0.path) && seen.insert($0.path).inserted }
-            .map { CleanItem(url: $0, size: FileSizer.allocatedSize(of: $0)) }
+            .filter { candidate in
+                // Belt and braces: a candidate must stay inside ~/Library and pass the global guard.
+                let parent = candidate.url.deletingLastPathComponent().resolvingSymlinksInPath().path
+                return (parent == libraryPath || parent.hasPrefix(libraryPath + "/"))
+                    && SafetyGuard.isAllowed(candidate.url, home: home)
+                    && FileManager.default.fileExists(atPath: candidate.url.path)
+                    && seen.insert(candidate.url.path).inserted
+            }
+            .map { candidate in
+                CleanItem(
+                    url: candidate.url, size: FileSizer.allocatedSize(of: candidate.url),
+                    detail: candidate.isGuess ? L("Mungkin terkait · cocok dari nama aplikasi", "Possibly related · matched by the app's name") : nil,
+                    isGuess: candidate.isGuess
+                )
+            }
             .sorted { $0.size > $1.size }
+    }
+
+    /// Reverse-DNS like "com.vendor.App": letters, digits, hyphens and underscores, at least two parts.
+    static func isValidBundleID(_ id: String) -> Bool {
+        guard id.count >= 5, id.count <= 255, !id.hasPrefix("."), !id.hasSuffix("."), !id.contains("..") else { return false }
+        let parts = id.split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count >= 2 && parts.allSatisfy { part in
+            !part.isEmpty && part.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+        }
+    }
+
+    /// Folder names shared by many apps or by macOS itself; matching on them would catch other apps' data.
+    private static let genericNames: Set<String> = [
+        "apple", "google", "microsoft", "adobe", "mozilla", "jetbrains", "oracle", "app", "apps", "helper",
+        "library", "caches", "logs", "preferences", "containers", "application support", "documents",
+        "desktop", "downloads", "data", "cache", "temp", "tmp", "backup", "backups", "user", "users", "shared",
+    ]
+
+    /// A name usable as one folder name: no path separators, no "." or "..", no hidden names.
+    static func isSafeName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed == name, name.count >= 3, name.count <= 255 else { return false }
+        guard !name.contains("/"), !name.contains(":"), !name.hasPrefix("."), !name.contains("\0") else { return false }
+        return !genericNames.contains(name.lowercased())
     }
 
     private func entries(in folder: URL, where matches: (String) -> Bool) -> [URL] {
@@ -461,7 +553,7 @@ struct AppScanner: Sendable {
         }
     }
 
-    private func makeApp(_ url: URL) -> InstalledApp? {
+    func makeApp(_ url: URL) -> InstalledApp? {
         guard let bundle = Bundle(url: url),
               let id = bundle.bundleIdentifier,
               !id.hasPrefix("com.apple."),

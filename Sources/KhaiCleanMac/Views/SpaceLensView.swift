@@ -137,12 +137,19 @@ struct SpaceLensView: View {
                             Label("Finder", systemImage: "arrow.up.forward.square")
                         }
                         .buttonStyle(SoftButtonStyle())
-                        Button {
-                            pendingTrash = item
-                        } label: {
-                            Label(Removal.isPermanent ? L("Hapus", "Delete") : "Trash", systemImage: Removal.actionSymbol)
+                        if SafetyGuard.isAllowed(item.url) {
+                            Button {
+                                pendingTrash = item
+                            } label: {
+                                Label(Removal.isPermanent ? L("Hapus", "Delete") : "Trash", systemImage: Removal.actionSymbol)
+                            }
+                            .buttonStyle(GradientButtonStyle(colors: Module.spaceLens.colors))
+                        } else {
+                            Label(L("Dilindungi", "Protected"), systemImage: "lock.shield.fill")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.secondary)
+                                .help(L("Folder penting ini tidak bisa dihapus dari KhaiCleanMac", "This important folder can't be removed from KhaiCleanMac"))
                         }
-                        .buttonStyle(GradientButtonStyle(colors: Module.spaceLens.colors))
                     }
                 }
                 .padding(.top, 4)

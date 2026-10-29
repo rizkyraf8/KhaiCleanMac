@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var spaceLens = SpaceLensModel()
     @State private var memory = MemoryModel()
     @State private var startup = StartupModel()
+    @State private var extensions = ExtensionsModel()
     @Bindable private var router = AppRouter.shared
     @State private var uninstaller: UninstallerModel
 
@@ -49,6 +50,8 @@ struct ContentView: View {
                 case .spaceLens: SpaceLensView(model: spaceLens)
                 case .startup: StartupView(model: startup)
                 case .memory: MemoryView(model: memory)
+                case .history: HistoryView()
+                case .extensions: ExtensionsView(model: extensions)
                 case .uninstaller: UninstallerView(model: uninstaller)
                 }
             }
@@ -183,6 +186,8 @@ private struct SidebarFooter: View {
             SettingsLink {
                 Label(L("Pengaturan", "Settings"), systemImage: "gearshape.fill")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .fixedSize()
                     .foregroundStyle(isHovering ? .primary : .secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -192,10 +197,27 @@ private struct SidebarFooter: View {
             .onHover { isHovering = $0 }
             .help(L("Bahasa, tampilan, dan info aplikasi (⌘,)", "Language, appearance and app info (⌘,)"))
             Spacer()
-            Text("v\(AppInfo.version)")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.tertiary)
-                .help(L("Versi \(AppInfo.version) (build \(AppInfo.build))", "Version \(AppInfo.version) (build \(AppInfo.build))"))
+            if UpdateChecker.shared.isUpdateAvailable, let latest = UpdateChecker.shared.latest {
+                Button {
+                    UpdateChecker.shared.openDownload()
+                } label: {
+                    Label(latest.version.description, systemImage: "arrow.down.circle.fill")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(LinearGradient(colors: Palette.mint, startPoint: .leading, endPoint: .trailing)))
+                }
+                .buttonStyle(.plain)
+                .help(L("Kamu memakai \(AppInfo.version). Klik untuk mengunduh \(latest.version).", "You have \(AppInfo.version). Click to download \(latest.version)."))
+            } else {
+                Text("v\(AppInfo.version)")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.tertiary)
+                    .help(L("Versi \(AppInfo.version) (build \(AppInfo.build))", "Version \(AppInfo.version) (build \(AppInfo.build))"))
+            }
         }
         .padding(.top, 6)
     }

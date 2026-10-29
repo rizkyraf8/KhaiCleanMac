@@ -41,6 +41,28 @@ enum Snapshot {
             }
             await render(MenuBarView(monitor: SystemMonitor()).background(.background), name: "menubar", scheme: scheme, folder: folder,
                          settle: 4.5, size: NSSize(width: 320, height: 330))
+            if args.contains("--updates") {
+                // Real request to rizkyraf.id, then a pretend 0.5.0 to show the "available" screens.
+                await UpdateChecker.shared.check()
+                await render(SettingsView(tab: .about), name: "update-live", scheme: scheme, folder: folder,
+                             settle: 1, size: NSSize(width: 560, height: 600))
+                UpdateChecker.shared.preview(LatestRelease(
+                    version: AppVersion("0.5.0")!, notes: "Pembersihan Mail, riwayat pembersihan, dan perbaikan kecil.",
+                    fileName: "KhaiCleanMac-0.5.0.dmg", size: 2_412_000, downloadURL: UpdateAPI.projectPage, releasedAt: Date(),
+                    sha256: String(repeating: "0", count: 64)
+                ), installed: AppVersion("0.4.0"))
+                await render(SettingsView(tab: .about), name: "update-available", scheme: scheme, folder: folder,
+                             settle: 1, size: NSSize(width: 560, height: 600))
+                await render(ContentView(selection: .home), name: "update-home", scheme: scheme, folder: folder, settle: 2)
+                if let latest = UpdateChecker.shared.latest {
+                    UpdateChecker.shared.preview(latest, installed: AppVersion("0.4.0"), step: .verifying)
+                    await render(ContentView(selection: .home), name: "update-verifying", scheme: scheme, folder: folder, settle: 2)
+                    UpdateChecker.shared.preview(latest, installed: AppVersion("0.4.0"), step: .failed(.checksumMismatch))
+                    await render(SettingsView(tab: .about), name: "update-failed", scheme: scheme, folder: folder,
+                                 settle: 1, size: NSSize(width: 560, height: 600))
+                }
+                UpdateChecker.shared.preview(nil, installed: nil)
+            }
             if args.contains("--results") {
                 // Mid-progress states, caught while the read-only work is still running.
                 let scanning = SmartScanModel()

@@ -82,6 +82,11 @@ final class DeveloperModel {
         selected = Set(allItems.filter { item in
             guard isSelectable(item) else { return false }
             if item.isSmart { return item.selectedByDefault }
+            switch item.simulator {
+            case .runtime: return item.selectedByDefault && (item.lastUsed ?? .distantPast) < cutoff
+            case .device: return item.selectedByDefault
+            case nil: break
+            }
             // Project folders follow the chosen age; archives and unknown folders stay opt-in.
             if item.tool == "Xcode" || item.note != nil { return false }
             return (item.lastUsed ?? .distantFuture) < cutoff
@@ -127,20 +132,25 @@ final class DeveloperModel {
                              symbol: "doc.on.clipboard.fill", colors: Module.developer.colors)
     }
 
+    /// Simulator runtimes and devices are deleted through `simctl`, not moved to the Trash.
+    var selectionHasSimulators: Bool { items(in: .simulators).contains { selected.contains($0.url) } }
+
     func moveSelectedToTrash() async {
-        // An IDE may have been opened since the scan.
+        // An IDE or the Simulator may have been opened since the scan.
         refreshLocks()
         let cutoff = cutoff
         let chosen = allItems.filter { selected.contains($0.url) && isSelectable($0) }
-        let trashItems = chosen.map { item -> CleanItem in
+        let simulatorItems = chosen.filter { $0.simulator != nil }
+        let simulatorReport = await removeSimulators(simulatorItems)
+        let trashItems = chosen.filter { $0.simulator == nil }.map { item -> CleanItem in
             guard item.isSmart else { return CleanItem(url: item.url, size: item.size) }
             let stale = item.staleEntries(before: cutoff)
             return CleanItem(url: item.url, size: stale.reduce(0) { $0 + $1.size },
                              title: L("\(item.title) (tidak dipakai)", "\(item.title) (unused)"),
                              members: stale.map(\.url))
         }
-        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(trashItems) }.value
-        let failed = Set(report.failed.map(\.url))
+        let report = trashItems.isEmpty ? CleanReport() : await Trasher.removeRecorded(trashItems, source: Module.developer.title)
+        let failed = Set((report.failed + simulatorReport.failed).map(\.url))
 
         withAnimation(.snappy) {
             for category in DevCategory.allCases {
@@ -153,8 +163,31 @@ final class DeveloperModel {
             }
             selected = failed
         }
-        toast = ToastMessage(text: report.summaryText,
-                             symbol: report.failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+        let summary = [trashItems.isEmpty ? nil : report.summaryText, simulatorItems.isEmpty ? nil : simulatorReport.summaryText]
+        toast = ToastMessage(text: summary.compactMap { $0 }.joined(separator: " · "),
+                             symbol: failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                              colors: Module.developer.colors)
+    }
+
+    /// One at a time: CoreSimulator handles a single delete at once anyway.
+    private func removeSimulators(_ items: [DevItem]) async -> CleanReport {
+        guard !items.isEmpty else { return CleanReport() }
+        let report = await Task.detached(priority: .userInitiated) { () -> CleanReport in
+            var report = CleanReport()
+            report.permanent = true
+            for item in items {
+                let cleanItem = CleanItem(url: item.url, size: item.size, title: item.title)
+                if let target = item.simulator, Simulators.remove(target) {
+                    report.movedCount += 1
+                    report.movedSize += item.size
+                    report.removed.append(RemovedItem(cleanItem, trashedTo: nil, memberPaths: []))
+                } else {
+                    report.failed.append(cleanItem)
+                }
+            }
+            return report
+        }.value
+        CleanHistory.shared.record(report, source: L("Simulator Xcode", "Xcode Simulators"))
+        return report
     }
 }

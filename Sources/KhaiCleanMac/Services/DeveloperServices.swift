@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum DevCategory: String, CaseIterable, Identifiable, Sendable {
-    case projects, packageCaches, xcodeArchives
+    case projects, packageCaches, simulators, xcodeArchives
 
     var id: String { rawValue }
 
@@ -10,6 +10,7 @@ enum DevCategory: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .projects: L("Dependensi Proyek", "Project Dependencies")
         case .packageCaches: L("Cache Package Manager", "Package Manager Caches")
+        case .simulators: L("Simulator Xcode", "Xcode Simulators")
         case .xcodeArchives: L("Arsip Xcode", "Xcode Archives")
         }
     }
@@ -22,6 +23,9 @@ enum DevCategory: String, CaseIterable, Identifiable, Sendable {
         case .packageCaches:
             L("Hanya library dan versi yang tidak dipakai lebih dari \(days) hari yang dibersihkan. Yang masih dipakai proyek aktif tetap disimpan.",
               "Only libraries and versions unused for \(days)+ days are cleaned. Anything your active projects still use stays.")
+        case .simulators:
+            L("Runtime iOS, watchOS, tvOS, visionOS dan perangkat simulatornya. Dihapus lewat Xcode, tidak lewat Trash; runtime bisa diunduh lagi di Xcode › Settings › Components. Runtime lama yang tidak dipakai lebih dari \(days) hari dan simulator yang runtimenya sudah hilang dipilih otomatis.",
+              "iOS, watchOS, tvOS and visionOS runtimes and their simulator devices. Removed through Xcode, not the Trash; runtimes can be downloaded again in Xcode › Settings › Components. Older runtimes unused for \(days)+ days and simulators whose runtime is gone are preselected.")
         case .xcodeArchives:
             L("Build yang pernah di-archive. Berisi dSYM untuk membaca laporan crash, jadi tidak dipilih otomatis.",
               "Builds you archived. They hold the dSYMs needed to read crash reports, so none are preselected.")
@@ -32,6 +36,7 @@ enum DevCategory: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .projects: "shippingbox.fill"
         case .packageCaches: "arrow.down.circle.fill"
+        case .simulators: "ipad.and.iphone"
         case .xcodeArchives: "archivebox.fill"
         }
     }
@@ -40,6 +45,7 @@ enum DevCategory: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .projects: Palette.leaf
         case .packageCaches: Palette.sky
+        case .simulators: Palette.ocean
         case .xcodeArchives: Palette.candy
         }
     }
@@ -67,6 +73,8 @@ struct DevItem: Identifiable, Hashable, Sendable {
     var lockingBundleIDs: [String] = []
     /// Non-empty for caches cleaned entry by entry: only stale entries go, the folder stays.
     var entries: [CacheEntry] = []
+    /// Set for simulator runtimes and devices, which only `simctl` may remove.
+    var simulator: SimulatorTarget?
 
     var id: URL { url }
     var isSmart: Bool { !entries.isEmpty }
@@ -177,6 +185,7 @@ struct DeveloperScanner: Sendable {
         if Task.isCancelled { return DevScanResult() }
         result.items[.projects] = walk.artifacts
         result.items[.packageCaches] = caches(activeGradleVersions: walk.activeGradleVersions)
+        result.items[.simulators] = Simulators.items()
         result.items[.xcodeArchives] = xcodeArchives()
         result.commands = commands()
         return result
@@ -389,14 +398,6 @@ struct DeveloperScanner: Sendable {
                 command: "docker system prune", size: size > 0 ? size : nil
             ))
         }
-        let simulators = URL.homeDirectory.appending(path: "Library/Developer/CoreSimulator/Devices")
-        if exists("/usr/bin/xcrun"), fm.fileExists(atPath: simulators.path) {
-            commands.append(DevCommand(
-                id: "simctl", title: L("Simulator iOS", "iOS Simulators"),
-                detail: L("Menghapus simulator untuk versi iOS yang sudah tidak terpasang.", "Removes simulators for iOS versions that are no longer installed."),
-                command: "xcrun simctl delete unavailable", size: nil
-            ))
-        }
         let goModules = URL.homeDirectory.appending(path: "go/pkg/mod")
         if fm.fileExists(atPath: goModules.path) {
             commands.append(DevCommand(
@@ -407,5 +408,113 @@ struct DeveloperScanner: Sendable {
             ))
         }
         return commands
+    }
+}
+
+// MARK: Xcode simulators
+
+/// Something CoreSimulator manages. Its files belong to the simulator service, so they are removed
+/// with `simctl` (for good, not to the Trash) instead of being moved away behind its back.
+enum SimulatorTarget: Hashable, Sendable {
+    case runtime(identifier: String)
+    case device(udid: String)
+}
+
+enum Simulators {
+    static let simulatorAppID = "com.apple.iphonesimulator"
+
+    /// `simctl` from the selected Xcode, called directly: going through `xcrun` on a Mac without Xcode
+    /// would pop up the "install developer tools" dialog.
+    static var simctl: String? {
+        let selected = StartupScanner.run("/usr/bin/xcode-select", ["-p"])?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidates = [selected, "/Applications/Xcode.app/Contents/Developer"].compactMap { $0 }
+        return candidates.map { $0 + "/usr/bin/simctl" }.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    static func items() -> [DevItem] {
+        guard let simctl else { return [] }
+        let runtimes = StartupScanner.run(simctl, ["runtime", "list", "-j"]).map { parseRuntimes(Data($0.utf8)) } ?? []
+        let devices = StartupScanner.run(simctl, ["list", "devices", "-j"]).map { parseDevices(Data($0.utf8)) } ?? []
+        return runtimes + devices
+    }
+
+    private static func date(_ value: Any?) -> Date? {
+        (value as? String).flatMap { try? Date($0, strategy: .iso8601) }
+    }
+
+    private static func platform(_ identifier: String) -> String {
+        switch identifier {
+        case let id where id.contains("iphone"): "iOS"
+        case let id where id.contains("watch"): "watchOS"
+        case let id where id.contains("appletv"): "tvOS"
+        case let id where id.contains("xr"): "visionOS"
+        default: "Simulator"
+        }
+    }
+
+    /// `simctl runtime list -j`: one entry per downloaded runtime image. The newest runtime of each
+    /// platform is never preselected, since that is the one new projects build against.
+    static func parseRuntimes(_ data: Data) -> [DevItem] {
+        guard let list = (try? JSONSerialization.jsonObject(with: data)) as? [String: [String: Any]] else { return [] }
+        let entries = list.values.compactMap { entry -> (item: DevItem, platform: String, version: AppVersion?)? in
+            guard let identifier = entry["identifier"] as? String, entry["deletable"] as? Bool != false,
+                  let path = entry["path"] as? String else { return nil }
+            let platform = platform(entry["platformIdentifier"] as? String ?? "")
+            let version = entry["version"] as? String ?? "?"
+            let build = entry["build"] as? String
+            let item = DevItem(
+                url: URL(filePath: path), size: (entry["sizeBytes"] as? NSNumber)?.int64Value ?? 0,
+                title: L("Runtime \(platform) \(version)", "\(platform) \(version) runtime") + (build.map { " (\($0))" } ?? ""),
+                tool: "Simulator", lastUsed: date(entry["lastUsedAt"]),
+                lockingBundleIDs: [simulatorAppID], simulator: .runtime(identifier: identifier))
+            return (item, platform, AppVersion(version))
+        }
+        var newest: [String: AppVersion] = [:]
+        for entry in entries {
+            if let version = entry.version, newest[entry.platform].map({ $0 < version }) ?? true { newest[entry.platform] = version }
+        }
+        return entries.map { entry in
+            var item = entry.item
+            item.selectedByDefault = entry.version.map { $0 < newest[entry.platform]! } ?? false
+            return item
+        }
+        .sorted { $0.size > $1.size }
+    }
+
+    /// `simctl list devices -j`: devices grouped by runtime. Ones whose runtime is gone can't boot
+    /// any more, so they are preselected; the rest hold apps and data and stay opt-in.
+    static func parseDevices(_ data: Data) -> [DevItem] {
+        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let groups = root["devices"] as? [String: [[String: Any]]] else { return [] }
+        return groups.flatMap { runtime, devices in
+            devices.compactMap { device -> DevItem? in
+                guard let udid = device["udid"] as? String, let dataPath = device["dataPath"] as? String,
+                      device["state"] as? String != "Booted" else { return nil }
+                let folder = URL(filePath: dataPath).deletingLastPathComponent()
+                let available = device["isAvailable"] as? Bool ?? true
+                let version = runtime.split(separator: ".").last.map {
+                    $0.split(separator: "-").dropFirst().joined(separator: ".")
+                } ?? ""
+                let os = runtime.split(separator: ".").last?.split(separator: "-").first.map(String.init) ?? ""
+                let size = (device["dataPathSize"] as? NSNumber)?.int64Value ?? FileSizer.allocatedSize(of: folder)
+                var item = DevItem(
+                    url: folder, size: size, title: "\(device["name"] as? String ?? udid) · \(os) \(version)",
+                    tool: L("Simulator", "Simulator"), lastUsed: date(device["lastUsedAt"] ?? device["lastBootedAt"]),
+                    selectedByDefault: !available, lockingBundleIDs: [simulatorAppID], simulator: .device(udid: udid))
+                if !available { item.note = L("Runtime-nya sudah tidak terpasang, simulator ini tidak bisa dijalankan.",
+                                               "Its runtime is no longer installed, so this simulator can't run.") }
+                return item
+            }
+        }
+        .filter { $0.size > 0 }
+        .sorted { $0.size > $1.size }
+    }
+
+    static func remove(_ target: SimulatorTarget) -> Bool {
+        guard let simctl else { return false }
+        switch target {
+        case .runtime(let identifier): return StartupScanner.run(simctl, ["runtime", "delete", identifier]) != nil
+        case .device(let udid): return StartupScanner.run(simctl, ["delete", udid]) != nil
+        }
     }
 }

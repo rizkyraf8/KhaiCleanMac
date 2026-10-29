@@ -30,18 +30,21 @@ Unduh versi terbaru KhaiCleanMac di **[rizkyraf.id/projects/khaicleanmac](https:
 - Butuh macOS 15 Sequoia atau lebih baru, di Mac dengan Apple silicon (M1 atau lebih baru).
 - Aplikasi ini belum di-notarize Apple, jadi macOS mungkin menahannya saat pertama kali dibuka. Buka **Pengaturan Sistem › Privasi & Keamanan**, lalu klik **Buka Saja**. Ini hanya perlu sekali.
 - Saat pertama dibuka, panduan awal akan memandu pengaturan Akses Disk Penuh. Izin ini opsional, tapi beberapa pemindaian membutuhkannya.
+- **Pembaruan:** sekali sehari aplikasi menanyakan versi terbaru ke `rizkyraf.id/api/projects/khaicleanmac/latest`. Kalau ada versi lebih baru, Beranda, sidebar, dan Pengaturan → Tentang menampilkan tombol **Perbarui**: aplikasi mengunduh DMG baru, mengecek checksum SHA-256, versi, dan tanda tangan kodenya, menggantikan dirinya, lalu terbuka lagi. Kalau ada pengecekan yang gagal, tidak ada yang diganti dan kamu bisa mengunduh manual. Yang dikirim hanya versi aplikasi, dan pengecekan ini bisa dimatikan di Pengaturan → Tentang. (Update di dalam aplikasi berlaku mulai 0.5.0; versi 0.4.0 ke bawah perlu satu kali unduh manual.)
 
 ## Fitur
 
 | Modul | Fungsi |
 |---|---|
 | **Beranda** | Titik awal: kondisi disk dan memori, Smart Scan sekali klik, status Akses Disk Penuh, dan kartu untuk setiap fitur |
-| **Smart Scan** | Mencari cache aplikasi (`~/Library/Caches`), log (`~/Library/Logs`), sampah Xcode (DerivedData, Device Support, cache simulator), installer `.dmg`/`.pkg` lama, Downloads lama, backup iPhone/iPad dan file `.ipsw`, serta isi Trash. Cache browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) dibersihkan per entri: hanya cache web lama dan Code Cache usang yang dibuang |
+| **Smart Scan** | Mencari cache aplikasi (`~/Library/Caches`), log (`~/Library/Logs`), sampah Xcode (DerivedData, Device Support, cache simulator), installer `.dmg`/`.pkg` lama, Downloads lama, salinan lampiran Mail, backup iPhone/iPad dan file `.ipsw`, serta isi Trash. Cache browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) dibersihkan per entri: hanya cache web lama dan Code Cache usang yang dibuang |
 | **File Besar** | Mencari file di atas 50 MB, 100 MB, 500 MB, atau 1 GB di folder pribadi, dengan filter jenis file dan urutan |
 | **Duplikat** | Mencari file yang isinya identik, dan secara default menyimpan salinan yang paling lama |
-| **Developer** | Mencari dependensi proyek lama (`node_modules`, `Pods`, `.build`, `target`) dan arsip Xcode. Cache package manager (Gradle, npm, Yarn, Cargo, Maven, dll.) dibersihkan per entri: hanya library yang tidak dipakai 30, 60, atau 90 hari yang dihapus, jadi proyek aktif tetap cepat di-build. Juga menampilkan perintah Terminal untuk Homebrew, Docker, simulator, dan Go |
+| **Developer** | Mencari dependensi proyek lama (`node_modules`, `Pods`, `.build`, `target`) arsip Xcode, serta runtime dan perangkat simulator Xcode (sering puluhan GB; dihapus lewat `simctl` milik Xcode sendiri). Cache package manager (Gradle, npm, Yarn, Cargo, Maven, dll.) dibersihkan per entri: hanya library yang tidak dipakai 30, 60, atau 90 hari yang dihapus, jadi proyek aktif tetap cepat di-build. Juga menampilkan perintah Terminal untuk Homebrew, Docker, dan Go |
 | **Space Lens** | Menampilkan peta treemap isi folder (default: Home). Klik dua kali untuk masuk ke folder, dan pakai breadcrumb untuk kembali |
 | **Uninstaller** | Menghapus aplikasi dari `/Applications` dan `~/Applications` beserta file sisanya (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents, dll.) |
+| **Ekstensi** | Menyalakan atau mematikan ekstensi aplikasi pihak ketiga (Safari, Finder Sync, menu Bagikan, Quick Look, widget, dll.), dan menghapus plug-in lama, Quick Action, dan screen saver dari `~/Library`. Plug-in di `/Library` hanya ditampilkan |
+| **Riwayat** | Setiap pembersihan dicatat: apa yang dihapus, ukurannya, dan ke mana perginya. Yang masih ada di Trash bisa dikembalikan dengan **Kembalikan**, satu per satu atau satu sesi sekaligus, dan tidak pernah menimpa file baru di lokasi asal |
 | **Login Items** | Menampilkan Login Items, LaunchAgents milikmu (bisa dimatikan atau dihapus), serta agent dan daemon sistem (hanya dilihat), dan menandai yang yatim karena app-nya sudah tidak ada |
 | **Memori** | Menampilkan tekanan memori, rincian RAM, dan pemakaian swap, plus daftar app yang paling banyak memakai RAM (termasuk proses pembantunya) dengan tombol Keluar. Bisa juga melepas cache file dengan `purge`, yang butuh password admin |
 | **Menu bar** | Menampilkan persentase CPU di menu bar, dengan panel berisi CPU, memori, disk, dan baterai. Aplikasi tetap berjalan di sana setelah jendela ditutup |
@@ -102,6 +105,17 @@ open build/KhaiCleanMac.app
 `build-app.sh` meng-compile versi release, membuat ikon aplikasi, dan menyusun `build/KhaiCleanMac.app`. Saat pengembangan, bisa juga memakai `swift run` atau membuka `Package.swift` di Xcode.
 
 Kalau Anda memakai [swiftly](https://github.com/swiftlang/swiftly), file `.swift-version` membuat swiftly memakai toolchain Swift dari Xcode di folder ini.
+
+### Membuat DMG
+
+```bash
+./scripts/make-dmg.sh            # build aplikasinya dulu
+./scripts/make-dmg.sh --skip-build   # memakai build/KhaiCleanMac.app yang sudah ada
+```
+
+Hasilnya `build/KhaiCleanMac-<versi>.dmg`, plus file checksum `.sha256` di sebelahnya. Saat DMG dibuka, tampil aplikasi, shortcut **Applications** untuk tempat menyeretnya, dan gambar latar berisi panah serta petunjuk instalasi.
+
+Untuk menata jendela itu, skrip butuh izin mengontrol Finder. Jalankan skrip dari Terminal dan izinkan saat macOS bertanya, atau nyalakan di **Pengaturan Sistem › Privasi & Keamanan › Otomatisasi**. Tanpa izin itu DMG tetap berfungsi, hanya tata letaknya memakai bawaan Finder.
 
 ### Akses Disk Penuh
 

@@ -5,11 +5,30 @@ The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATC
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-29
+
+### Security
+- **Uninstaller no longer trusts names and IDs from other apps' Info.plist.** A crafted name such as `../../Documents` could make a personal folder show up as a preselected "leftover". Names and bundle IDs are now validated, bundle IDs match exactly instead of by substring, and an empty or malformed ID matches nothing.
+- Folders matched only by an app's name are labelled "Possibly related" and are no longer preselected.
+- **New central safeguard:** whatever a module picks, removal refuses protected locations: system folders, the home folder and its main folders (Documents, Desktop, Downloads, Library and its top-level folders, the Trash itself), keychains and iCloud Drive. Paths with `..` are refused, and symlinks can't be used to get around it. Space Lens shows "Protected" for these.
+- Smart Scan no longer offers caches that system services are actively using: background downloads, iCloud, Family Sharing, Home and Music.
+- The update check only opens `https` links on rizkyraf.id. Any other link from the API is ignored in favor of the project page.
+
 ### Changed
 - **License:** KhaiCleanMac is now source-available under the PolyForm Noncommercial License 1.0.0, for every version. Noncommercial use, study, changes and sharing are allowed; commercial use is not.
 
 ### Added
+- **In-app updates.** "Update" downloads the new version, checks it against the SHA-256 published by rizkyraf.id, mounts it read-only, checks that the app inside is KhaiCleanMac at the announced version with an intact code signature (and the same certificate, when the installed app has one), then swaps it in and reopens. The old app stays until every check passes and is put back if the swap fails. Without a checksum from the server, the button falls back to the browser download.
+- **Cleanup history** with **Restore**: every cleanup from any module is logged (up to 100). Anything still in the Trash goes back to where it was, item by item or a whole cleanup at once; an item cleaned file by file goes back file by file. Nothing at the original place is ever overwritten.
+- **Extensions** module: turn third-party app extensions on or off (Safari, Finder Sync, Share menu, Quick Look, widgets, Shortcuts…) the same way System Settings does, and remove your own plug-ins, Quick Actions and screen savers from `~/Library`. Plug-ins in `/Library` are shown read-only.
+- **Xcode simulators** in the Developer module: simulator runtimes (often 5–10 GB each) and simulator devices, with size and last use. Older runtimes unused for the chosen age and devices whose runtime is gone are preselected; the newest runtime of each platform never is. They are removed through Xcode's own `simctl`, not the Trash. Booted devices are skipped and everything is locked while Simulator is open.
+- **Mail attachments** in Smart Scan: copies Mail saved when attachments were opened. The originals stay in your email. Not preselected.
 - Contributing guide, Contributor License Agreement, and pull request and issue templates.
+- **Update check:** once a day (and on demand in Settings → About), the app asks rizkyraf.id for the latest version. A newer one shows up on Home, in the sidebar and in Settings with a direct download button. Only the app version is sent, and the check can be turned off.
+- `scripts/make-dmg.sh` builds a DMG with the app, an Applications shortcut to drag it onto, a background with install notes, a volume icon and a SHA-256 checksum.
+
+### Fixed
+- CI: worked around a Swift 6.2 compiler crash in Settings, and CI now shows build and test errors on the run summary.
 
 ## [0.4.0] - 2026-10-28
 
@@ -96,6 +115,7 @@ First public release.
 - **Menu bar monitor:** shows CPU, memory, disk and battery.
 - Everything that gets removed goes to the Trash, and nothing is removed without confirmation.
 
+[0.5.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.1.0...v0.2.0

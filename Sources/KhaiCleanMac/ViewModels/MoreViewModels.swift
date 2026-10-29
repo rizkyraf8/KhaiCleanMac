@@ -73,7 +73,7 @@ final class DuplicatesModel {
         let items = groups.flatMap { group in
             group.files.filter { selected.contains($0.url) }.map { CleanItem(url: $0.url, size: group.size) }
         }
-        let report = await Task.detached(priority: .userInitiated) { Trasher.remove(items) }.value
+        let report = await Trasher.removeRecorded(items, source: Module.duplicates.title)
         let failed = Set(report.failed.map(\.url))
         let removed = selected.subtracting(failed)
         withAnimation(.snappy) {
@@ -195,7 +195,7 @@ final class SpaceLensModel {
     }
 
     func moveToTrash(_ item: SpaceItem) async {
-        let report = await Task.detached { Trasher.remove([CleanItem(url: item.url, size: item.size ?? 0)]) }.value
+        let report = await Trasher.removeRecorded([CleanItem(url: item.url, size: item.size ?? 0)], source: Module.spaceLens.title)
         if report.failed.isEmpty {
             withAnimation(.snappy) { items.removeAll { $0.id == item.id } }
             cache[item.url] = nil
