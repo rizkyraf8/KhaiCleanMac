@@ -99,6 +99,22 @@ enum Snapshot {
                 developer.scan()
                 while developer.phase == .scanning { try? await Task.sleep(for: .milliseconds(300)) }
                 await render(ContentView(selection: .developer, developer: developer), name: "developer-results", scheme: scheme, folder: folder, settle: 1.5)
+                // Pretend sizes, so the Docker card shows on a Mac without Docker.
+                let usage = DockerUsage(images: .init(size: 9_400_000_000, reclaimable: 6_200_000_000, count: 23),
+                                        containers: .init(size: 310_000_000, reclaimable: 280_000_000, count: 7),
+                                        buildCache: .init(size: 4_100_000_000, reclaimable: 3_900_000_000, count: 140))
+                let old = Date().addingTimeInterval(-90 * 24 * 60 * 60)
+                let engine = DockerEngine(context: "desktop-linux", host: "unix:///Users/me/.docker/run/docker.sock", usage: usage,
+                                          stoppedContainers: [DockerContainer(id: "a1", name: "postgres-dev", image: "postgres:16", created: old),
+                                                              DockerContainer(id: "b2", name: "redis-test", image: "redis:7", created: old)])
+                let dockerModel = DeveloperModel()
+                dockerModel.previewDocker(.ready(engine))
+                dockerModel.includeStoppedContainers = true
+                await render(DockerCard(model: dockerModel).padding(24).background(SoftBackground(colors: Module.developer.colors)),
+                             name: "developer-docker", scheme: scheme, folder: folder, settle: 1, size: NSSize(width: 860, height: 470))
+                dockerModel.previewDocker(.notLocal(context: "production", host: "ssh://deploy@prod.example.com"))
+                await render(DockerCard(model: dockerModel).padding(24).background(SoftBackground(colors: Module.developer.colors)),
+                             name: "developer-docker-remote", scheme: scheme, folder: folder, settle: 1, size: NSSize(width: 860, height: 230))
             }
             NSApp.terminate(nil)
         }

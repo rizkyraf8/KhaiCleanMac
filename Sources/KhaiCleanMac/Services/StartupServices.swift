@@ -90,28 +90,41 @@ enum StartupScanner {
     }
 
     /// Classic login items through System Events. macOS asks once for permission to control it;
-    /// `nil` means that was declined or failed.
+    /// `nil` means that was declined or failed. Each item is read on its own, so one whose app is gone
+    /// (its path can't be read) shows up as an orphan instead of failing the whole list.
     static func loginItems() -> [StartupItem]? {
         let script = """
         set output to ""
         tell application "System Events"
             repeat with anItem in login items
-                set output to output & (name of anItem) & tab & (path of anItem) & linefeed
+                try
+                    set thePath to (path of anItem)
+                on error
+                    set thePath to ""
+                end try
+                try
+                    set output to output & (name of anItem) & tab & thePath & linefeed
+                end try
             end repeat
         end tell
         return output
         """
         guard let output = run("/usr/bin/osascript", ["-e", script]) else { return nil }
-        return output.split(separator: "\n").compactMap { line in
+        return parseLoginItems(output)
+    }
+
+    /// Lines are "name<tab>path"; the path is empty when System Events couldn't read it.
+    static func parseLoginItems(_ output: String) -> [StartupItem] {
+        output.split(separator: "\n").compactMap { line in
             let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
             guard let name = parts.first, !name.isEmpty else { return nil }
-            let path = parts.count > 1 ? parts[1] : nil
+            let path = parts.count > 1 && !parts[1].isEmpty ? parts[1] : nil
             return StartupItem(
                 id: "login:\(name)", kind: .loginItem, label: name, name: name,
                 fileURL: path.map { URL(filePath: $0) }, programPath: path,
                 appURL: path.flatMap { $0.hasSuffix(".app") ? URL(filePath: $0) : nil },
                 runsAtLoad: true, keepsAlive: false, isDisabled: false,
-                isOrphan: path.map { !FileManager.default.fileExists(atPath: $0) } ?? false
+                isOrphan: path.map { !FileManager.default.fileExists(atPath: $0) } ?? true
             )
         }
     }

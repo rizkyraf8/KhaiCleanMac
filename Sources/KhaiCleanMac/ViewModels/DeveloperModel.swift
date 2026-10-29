@@ -23,6 +23,18 @@ final class DeveloperModel {
     var staleAge: StaleAge = .days90 {
         didSet { applyDefaultSelection() }
     }
+    private(set) var docker: DockerState = .notInstalled
+    private(set) var isCleaningDocker = false
+    /// Docker has its own, shorter ages: images and build cache pile up much faster than libraries.
+    var dockerAge: DockerAge = .days30
+    /// Off by default: a stopped container's own files can hold data that isn't in a volume.
+    var includeStoppedContainers = false
+
+    /// Stopped containers the current settings would remove (none unless they're opted in).
+    var dockerContainersToRemove: [DockerContainer] {
+        guard includeStoppedContainers, case .ready(let engine) = docker else { return [] }
+        return engine.containers(olderThan: dockerAge)
+    }
 
     private var scanTask: Task<Void, Never>?
 
@@ -76,6 +88,62 @@ final class DeveloperModel {
         refreshLocks()
         applyDefaultSelection()
         withAnimation(.smooth) { phase = .results }
+        Task { await refreshDocker() }
+    }
+
+    // MARK: Docker
+
+    #if DEBUG
+    /// Snapshots show the Docker card on Macs without Docker.
+    func previewDocker(_ state: DockerState) {
+        docker = state
+    }
+    #endif
+
+    func refreshDocker() async {
+        let state = await Task.detached(priority: .userInitiated) {
+            DockerCleaner.state(binary: DockerCleaner.binary())
+        }.value
+        withAnimation(.smooth) { docker = state }
+    }
+
+    /// Docker removes these itself and for good: there is no Trash for images or containers.
+    func cleanDocker() async {
+        guard case .ready(let engine) = docker, let binary = DockerCleaner.binary() else { return }
+        isCleaningDocker = true
+        let age = dockerAge
+        let includeContainers = includeStoppedContainers
+        let containers = dockerContainersToRemove
+        let result = await Task.detached(priority: .userInitiated) {
+            DockerCleaner.prune(age, engine: engine, includeContainers: includeContainers, binary: binary)
+        }.value
+        isCleaningDocker = false
+        CleanHistory.shared.record(Self.dockerHistory(result, engine: engine, age: age, containers: containers), source: "Docker")
+        let text = result.failures.isEmpty
+            ? L("Docker: \(result.reclaimed.formattedBytes) dibersihkan", "Docker: \(result.reclaimed.formattedBytes) cleaned")
+            : L("Docker: \(result.reclaimed.formattedBytes) dibersihkan · \(result.failures.count) langkah gagal",
+                "Docker: \(result.reclaimed.formattedBytes) cleaned · \(result.failures.count) steps failed")
+        toast = ToastMessage(text: text, symbol: result.failures.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+                             colors: Module.developer.colors)
+        await refreshDocker()
+    }
+
+    /// One History line per Docker cleanup. Nothing can be restored from it (Docker has no Trash),
+    /// but it shows what went, from which engine and how much.
+    nonisolated static func dockerHistory(_ result: DockerPruneResult, engine: DockerEngine, age: DockerAge,
+                                          containers: [DockerContainer]) -> CleanReport {
+        var report = CleanReport(permanent: true)
+        guard result.reclaimed > 0 || !containers.isEmpty else { return report }
+        var what = L("image & build cache", "images & build cache")
+        if !containers.isEmpty { what += L(" + \(containers.count) container", " + \(containers.count) containers") }
+        let title = L("Docker (\(engine.context)): \(what), dibuat lebih dari \(age.label) lalu",
+                      "Docker (\(engine.context)): \(what) created over \(age.label) ago")
+        let socket = URL(filePath: engine.host.replacingOccurrences(of: "unix://", with: ""))
+        let item = CleanItem(url: socket, size: result.reclaimed, title: title)
+        report.movedCount = 1
+        report.movedSize = result.reclaimed
+        report.removed = [RemovedItem(item, trashedTo: nil, memberPaths: [])]
+        return report
     }
 
     private func applyDefaultSelection() {
@@ -144,7 +212,7 @@ final class DeveloperModel {
         let simulatorReport = await removeSimulators(simulatorItems)
         let trashItems = chosen.filter { $0.simulator == nil }.compactMap { Self.cleanItem(for: $0, cutoff: cutoff) }
         let report = trashItems.isEmpty ? CleanReport() : await Trasher.removeRecorded(trashItems, source: Module.developer.title)
-        let failed = Set((report.failed + simulatorReport.failed).map(\.url))
+        let failed = Set((report.unremoved + simulatorReport.failed).map(\.url))
 
         withAnimation(.snappy) {
             for category in DevCategory.allCases {

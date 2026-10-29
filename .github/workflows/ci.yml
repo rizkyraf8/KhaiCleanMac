@@ -19,7 +19,7 @@ jobs:
       - name: Toolchain
         run: swift --version
 
-      # Every L("…", "…") text needs its Japanese, Chinese and Spanish entry; see Localization/Translations.swift.
+      # Every L("…", "…") text needs an entry in each Localization/Translations+<code>.swift.
       - name: Translations
         run: python3 scripts/l10n.py check
 
@@ -33,20 +33,11 @@ jobs:
           set -o pipefail
           swift test 2>&1 | tee test.log
 
-      # The released app is universal, so the Intel slice has to build and pass the tests too.
-      # SwiftPM's own test runner is arm64-only; Xcode's xctest is universal and runs under Rosetta.
+      # The released app is universal; the Intel slice is tested natively in the job below.
       - name: Build universal (Apple silicon + Intel)
         run: |
           set -o pipefail
           swift build -c release --arch arm64 --arch x86_64 2>&1 | tee -a build.log
-
-      - name: Test on Intel (Rosetta)
-        run: |
-          set -o pipefail
-          /usr/bin/pgrep -q oahd || sudo softwareupdate --install-rosetta --agree-to-license
-          swift build --build-tests --arch x86_64 2>&1 | tee -a build.log
-          BUNDLE="$(swift build --build-tests --arch x86_64 --show-bin-path)/KhaiCleanMacTests.xctest"
-          arch -x86_64 "$(xcrun -f xctest)" "$BUNDLE" 2>&1 | tee -a test.log
 
       # Logs need a GitHub login to read; annotations show on the run summary for everyone.
       - name: Show errors on the run summary
@@ -54,5 +45,40 @@ jobs:
         run: |
           cat build.log test.log 2>/dev/null \
             | grep -E "error:|fatal error|note: SmallVector|✘|failed" \
+            | grep -v "^warning" | head -25 \
+            | while IFS= read -r line; do echo "::error::${line}"; done
+
+  # A real Intel Mac rather than Rosetta on Apple silicon: SwiftPM's test runner there is arm64-only,
+  # and running the x86_64 tests through Rosetta failed on GitHub's runners.
+  intel:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use the newest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Toolchain
+        run: |
+          uname -m
+          swift --version
+
+      - name: Build
+        run: |
+          set -o pipefail
+          swift build 2>&1 | tee build.log
+
+      - name: Test
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee test.log
+
+      - name: Show errors on the run summary
+        if: failure()
+        run: |
+          cat build.log test.log 2>/dev/null \
+            | grep -E "error:|fatal error|✘|failed" \
             | grep -v "^warning" | head -25 \
             | while IFS= read -r line; do echo "::error::${line}"; done
