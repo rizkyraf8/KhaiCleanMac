@@ -16,6 +16,8 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                // Without it several scans come up short, so it leads the page.
+                if !hasAccess { accessCard }
                 UpdateBanner()
                 if settings.deletesPermanently { permanentBanner }
                 HStack(alignment: .top, spacing: 16) {
@@ -27,7 +29,6 @@ struct HomeView: View {
                     .frame(width: 300)
                 }
                 HealthCard()
-                if !hasAccess { accessCard }
                 Text(L("Semua fitur", "All features"))
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .padding(.top, 4)

@@ -72,21 +72,37 @@ final class DuplicatesModel {
     }
 
     func moveSelectedToTrash() async {
-        let items = groups.flatMap { group in
-            group.files.filter { selected.contains($0.url) }.map { CleanItem(url: $0.url, size: group.size) }
-        }
-        let report = await Trasher.removeRecorded(items, source: Module.duplicates.title)
+        // Files may have changed since the scan: only copies that still match a kept copy go.
+        let groups = groups
+        let selected = selected
+        let (items, skipped) = await Task.detached(priority: .userInitiated) { () -> ([CleanItem], [URL]) in
+            var items: [CleanItem] = []
+            var skipped: [URL] = []
+            for group in groups {
+                let check = DuplicateScanner.verifiedRemovals(in: group, selected: selected)
+                items += check.remove.map { CleanItem(url: $0.url, size: group.size) }
+                skipped += check.skipped.map(\.url)
+            }
+            return (items, skipped)
+        }.value
+        let report = items.isEmpty ? CleanReport() : await Trasher.removeRecorded(items, source: Module.duplicates.title)
         let failed = Set(report.failed.map(\.url))
-        let removed = selected.subtracting(failed)
+        let removed = Set(items.map(\.url)).subtracting(failed)
         withAnimation(.snappy) {
-            groups = groups.compactMap { group in
+            self.groups = groups.compactMap { group in
                 var group = group
                 group.files.removeAll { removed.contains($0.url) }
                 return group.files.count > 1 ? group : nil
             }
-            selected = failed
+            self.selected = failed
         }
-        toast = ToastMessage(text: report.summaryText, symbol: report.failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill", colors: Module.duplicates.colors)
+        var text = report.summaryText
+        if !skipped.isEmpty {
+            text += L(" · \(skipped.count) dilewati karena berubah sejak dipindai, pindai ulang",
+                      " · \(skipped.count) skipped because files changed since the scan, scan again")
+        }
+        toast = ToastMessage(text: text, symbol: report.failed.isEmpty && skipped.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+                             colors: Module.duplicates.colors)
     }
 }
 

@@ -95,22 +95,65 @@ struct DuplicateScanner: Sendable {
         return bySize
     }
 
-    private static func hash(_ url: URL, limit: Int?) -> String? {
+    /// SHA-256 of the first `limit` bytes, or of the whole file. A read error gives nil rather than
+    /// the digest of what was read so far, so a half-read file never looks like a copy.
+    static func hash(_ url: URL, limit: Int?) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         var hasher = SHA256()
         var remaining = limit ?? .max
         while remaining > 0 {
             if Task.isCancelled { return nil }
-            let read = autoreleasepool { () -> Int in
-                guard let chunk = try? handle.read(upToCount: min(1 << 20, remaining)), !chunk.isEmpty else { return 0 }
-                hasher.update(data: chunk)
-                return chunk.count
+            let read = autoreleasepool { () -> Int? in
+                do {
+                    guard let chunk = try handle.read(upToCount: min(1 << 20, remaining)), !chunk.isEmpty else { return 0 }
+                    hasher.update(data: chunk)
+                    return chunk.count
+                } catch {
+                    return nil
+                }
             }
+            guard let read else { return nil }
             guard read > 0 else { break }
             remaining -= read
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Checks a group again right before cleanup, since files may have changed since the scan. A selected
+    /// copy is only removed when it is still a regular file of the group's size whose content matches a
+    /// different, unselected copy that still exists. Anything that fails to read counts as changed.
+    static func verifiedRemovals(in group: DuplicateGroup, selected: Set<URL>) -> (remove: [DuplicateFile], skipped: [DuplicateFile]) {
+        let chosen = group.files.filter { selected.contains($0.url) }
+        guard !chosen.isEmpty else { return ([], []) }
+
+        func identity(_ url: URL) -> (id: NSObject, size: Int64)? {
+            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .fileResourceIdentifierKey]),
+                  values.isRegularFile == true, values.isSymbolicLink != true,
+                  let size = values.fileSize, let id = values.fileResourceIdentifier as? NSObject else { return nil }
+            return (id, Int64(size))
+        }
+
+        var keptDigests = Set<String>()
+        var keptFiles = Set<NSObject>()
+        for file in group.files where !selected.contains(file.url) {
+            guard let kept = identity(file.url), kept.size == group.size, let digest = hash(file.url, limit: nil) else { continue }
+            keptDigests.insert(digest)
+            keptFiles.insert(kept.id)
+        }
+
+        var remove: [DuplicateFile] = []
+        var skipped: [DuplicateFile] = []
+        for file in chosen {
+            // A hard link to a kept copy is the kept copy: trashing it would leave nothing behind.
+            if let current = identity(file.url), current.size == group.size, !keptFiles.contains(current.id),
+               let digest = hash(file.url, limit: nil), keptDigests.contains(digest) {
+                remove.append(file)
+            } else {
+                skipped.append(file)
+            }
+        }
+        return (remove, skipped)
     }
 }
 

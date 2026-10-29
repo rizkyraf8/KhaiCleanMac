@@ -1,4 +1,5 @@
 import AppKit
+import Security
 
 extension FileManager.DirectoryEnumerator {
     /// Calls `body` for each URL inside its own autorelease pool. Without one, the Foundation objects
@@ -90,7 +91,7 @@ enum Trasher {
             } else if item.members.isEmpty {
                 record = (try? trash(item.url)).map { RemovedItem(item, trashedTo: $0, memberPaths: []) }
             } else {
-                record = trashMembers(of: item, stagingRoot: stagingRoot, trash: trash)
+                record = trashMembers(of: item, stagingRoot: stagingRoot, trash: trash, kept: &report.keptInStaging)
                     .map { RemovedItem(item, trashedTo: $0.folder, memberPaths: $0.relativePaths) }
             }
             if let record {
@@ -113,7 +114,10 @@ enum Trasher {
     /// Gathers many small files (such as single cache entries) into one dated folder and trashes
     /// that folder, so the Trash gets one tidy item instead of thousands. Paths inside the folder
     /// mirror the originals, so files can still be put back by hand.
-    private static func trashMembers(of item: CleanItem, stagingRoot: URL, trash: TrashAction) -> (folder: URL?, relativePaths: [String])? {
+    /// When the Trash refuses and a file can't go back (its place is taken, or not writable), the staging
+    /// folder is kept with that file in it and added to `kept`: it is never deleted.
+    private static func trashMembers(of item: CleanItem, stagingRoot: URL, trash: TrashAction,
+                                     kept: inout [URL]) -> (folder: URL?, relativePaths: [String])? {
         let fm = FileManager.default
         let stamp = Date().formatted(.verbatim("\(year: .defaultDigits)-\(month: .twoDigits)-\(day: .twoDigits) \(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)).\(minute: .twoDigits).\(second: .twoDigits)", timeZone: .current, calendar: .current))
         let staging = uniqueURL(stagingRoot.appending(path: "\(item.name.replacingOccurrences(of: "/", with: "-")) \(stamp)"))
@@ -130,8 +134,13 @@ enum Trasher {
 
         if !moved.isEmpty, let trashed = try? trash(staging) { return (trashed, moved.map(\.relative)) }
         // Nothing moved, or the Trash refused: put every file back where it came from.
-        for pair in moved { try? fm.moveItem(at: pair.to, to: pair.from) }
-        try? fm.removeItem(at: staging)
+        let stranded = moved.filter { (try? fm.moveItem(at: $0.to, to: $0.from)) == nil }
+        if stranded.isEmpty {
+            // Only empty folders are left.
+            try? fm.removeItem(at: staging)
+        } else {
+            kept.append(staging)
+        }
         return nil
     }
 
@@ -460,19 +469,26 @@ struct AppScanner: Sendable {
     ///
     /// The bundle ID and names come from the app's own Info.plist, so they are untrusted input: an app
     /// named "../../Documents" or with an empty or tiny ID must not be able to point at other data.
-    /// Matches by bundle ID are exact; folders matched only by the app's name are marked as guesses.
-    func leftovers(for app: InstalledApp, home: URL = .homeDirectory) -> [CleanItem] {
+    /// Matches by bundle ID are exact. Anything else is marked as a guess and never preselected: folders
+    /// matched only by the app's name, look-alike IDs (`com.vendor.editor.beta` for `com.vendor.editor`),
+    /// and Group Containers another installed app also declares.
+    ///
+    /// `ownGroups` and `otherAppsGroups` are the app groups from code signatures; nil reads them.
+    func leftovers(for app: InstalledApp, home: URL = .homeDirectory,
+                   ownGroups: Set<String>? = nil, otherAppsGroups: Set<String>? = nil) -> [CleanItem] {
         let id = app.bundleID
         // Without a well-formed ID nothing can be matched safely, so only the app itself goes.
         guard Self.isValidBundleID(id) else { return [] }
 
         let library = home.appending(path: "Library")
-        var candidates: [(url: URL, isGuess: Bool)] = []
-        func add(_ subpath: String, guess: Bool = false) { candidates.append((library.appending(path: subpath), guess)) }
+        let nameGuess = L("Mungkin terkait · cocok dari nama aplikasi", "Possibly related · matched by the app's name")
+        let lookAlike = L("Mungkin milik app lain · ID-nya hanya mirip", "May belong to another app · its ID only looks alike")
+        var candidates: [(url: URL, guess: String?)] = []
+        func add(_ subpath: String, guess: String? = nil) { candidates.append((library.appending(path: subpath), guess)) }
 
         for folder in ["Application Support", "Caches", "Logs"] {
             add("\(folder)/\(id)")
-            for name in app.searchNames where Self.isSafeName(name) { add("\(folder)/\(name)", guess: true) }
+            for name in app.searchNames where Self.isSafeName(name) { add("\(folder)/\(name)", guess: nameGuess) }
         }
         add("Preferences/\(id).plist")
         add("Containers/\(id)")
@@ -482,14 +498,25 @@ struct AppScanner: Sendable {
         add("HTTPStorages/\(id).binarycookies")
         add("WebKit/\(id)")
         add("Cookies/\(id).binarycookies")
-        // "group.<id>", "<TEAM>.<id>" or "<TEAM>.<id>.<suffix>", never a mere substring.
+        // Group Containers: the app's signed app groups, or the conventional "group.<id>" / "<TEAM>.<id>".
+        // A container another installed app also declares is shared, and look-alikes may be another app's.
+        let ownGroups = ownGroups ?? Self.appGroups(of: app.url)
+        let otherAppsGroups = otherAppsGroups ?? Self.appGroups(ofAppsOtherThan: app)
+        let shared = L("Dipakai bersama app lain yang masih terpasang", "Shared with another installed app")
         candidates += entries(in: library.appending(path: "Group Containers")) {
-            $0 == id || $0 == "group.\(id)" || $0.hasSuffix(".\(id)") || $0.contains(".\(id).")
-        }.map { ($0, false) }
+            ownGroups.contains($0) || Self.isOwnGroupName($0, id: id) || $0.hasSuffix(".\(id)") || $0.contains(".\(id).")
+        }.map { url in
+            let name = url.lastPathComponent
+            if otherAppsGroups.contains(name) { return (url, shared) }
+            return (url, ownGroups.contains(name) || Self.isOwnGroupName(name, id: id) ? nil : lookAlike)
+        }
+        // "<id>.plist" is the app's own agent; "<id>.<more>.plist" may be a helper or another app such as a beta.
         candidates += entries(in: library.appending(path: "LaunchAgents")) {
             $0 == "\(id).plist" || $0.hasPrefix("\(id).")
-        }.map { ($0, false) }
-        candidates += entries(in: library.appending(path: "Preferences/ByHost")) { $0.hasPrefix("\(id).") }.map { ($0, false) }
+        }.map { ($0, $0.lastPathComponent == "\(id).plist" ? nil : lookAlike) }
+        // ByHost preferences are "<id>.<host UUID>.plist".
+        candidates += entries(in: library.appending(path: "Preferences/ByHost")) { $0.hasPrefix("\(id).") }
+            .map { ($0, Self.isByHostName($0.lastPathComponent, id: id) ? nil : lookAlike) }
 
         var seen = Set<String>()
         let libraryPath = library.resolvingSymlinksInPath().path
@@ -503,13 +530,45 @@ struct AppScanner: Sendable {
                     && seen.insert(candidate.url.path).inserted
             }
             .map { candidate in
-                CleanItem(
-                    url: candidate.url, size: FileSizer.allocatedSize(of: candidate.url),
-                    detail: candidate.isGuess ? L("Mungkin terkait · cocok dari nama aplikasi", "Possibly related · matched by the app's name") : nil,
-                    isGuess: candidate.isGuess
-                )
+                CleanItem(url: candidate.url, size: FileSizer.allocatedSize(of: candidate.url),
+                          detail: candidate.guess, isGuess: candidate.guess != nil)
             }
             .sorted { $0.size > $1.size }
+    }
+
+    /// "group.<id>", "<id>", or either behind a ten-character team ID, such as "ABCDE12345.<id>".
+    static func isOwnGroupName(_ name: String, id: String) -> Bool {
+        if name == id || name == "group.\(id)" { return true }
+        let parts = name.split(separator: ".", maxSplits: 1).map(String.init)
+        guard parts.count == 2, parts[0].count == 10,
+              parts[0].allSatisfy({ ($0.isUppercase || $0.isNumber) && $0.isASCII }) else { return false }
+        return parts[1] == id || parts[1] == "group.\(id)"
+    }
+
+    /// "<id>.<host UUID>.plist": the UUID, or an older 12-digit hardware address, and nothing else.
+    static func isByHostName(_ name: String, id: String) -> Bool {
+        guard name.hasPrefix("\(id)."), name.hasSuffix(".plist") else { return false }
+        let host = name.dropFirst(id.count + 1).dropLast(".plist".count)
+        return (host.count == 36 || host.count == 12) && host.allSatisfy { $0.isHexDigit || $0 == "-" }
+    }
+
+    /// The app groups an app declares in its signed entitlements.
+    static func appGroups(of appURL: URL) -> Set<String> {
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(appURL as CFURL, [], &code) == errSecSuccess, let code else { return [] }
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSRequirementInformation), &info) == errSecSuccess,
+              let signing = info as? [String: Any],
+              let entitlements = signing[kSecCodeInfoEntitlementsDict as String] as? [String: Any] else { return [] }
+        return Set(entitlements["com.apple.security.application-groups"] as? [String] ?? [])
+    }
+
+    /// App groups declared by every other installed app, Apple's included, to spot shared containers.
+    static func appGroups(ofAppsOtherThan app: InstalledApp) -> Set<String> {
+        let roots = [URL(filePath: "/Applications"), URL(filePath: "/System/Applications"), URL.homeDirectory.appending(path: "Applications")]
+        let bundles = roots.flatMap { AppScanner().appBundles(in: $0, depth: 2) }
+        return bundles.filter { $0.standardizedFileURL != app.url.standardizedFileURL }
+            .reduce(into: Set<String>()) { $0.formUnion(appGroups(of: $1)) }
     }
 
     /// Reverse-DNS like "com.vendor.App": letters, digits, hyphens and underscores, at least two parts.
@@ -541,7 +600,7 @@ struct AppScanner: Sendable {
         return urls.filter { matches($0.lastPathComponent) }
     }
 
-    private func appBundles(in folder: URL, depth: Int) -> [URL] {
+    func appBundles(in folder: URL, depth: Int) -> [URL] {
         guard depth > 0, let urls = try? FileManager.default.contentsOfDirectory(
             at: folder, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
         ) else { return [] }

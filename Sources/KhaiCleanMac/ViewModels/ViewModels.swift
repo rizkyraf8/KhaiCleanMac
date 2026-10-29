@@ -327,6 +327,10 @@ extension CleanReport {
                 "\(movedCount) \(movedCount == 1 ? "item" : "items") (\(movedSize.formattedBytes)) moved to the Trash")
         if !failed.isEmpty { text += L(" · \(failed.count) gagal", " · \(failed.count) failed") }
         if !blocked.isEmpty { text += L(" · \(blocked.count) dilindungi, dilewati", " · \(blocked.count) protected, skipped") }
+        if let folder = keptInStaging.first?.deletingLastPathComponent().abbreviatedPath {
+            text += L(" · sebagian file tidak bisa dikembalikan dan disimpan di \(folder)",
+                      " · some files couldn't be put back and are kept in \(folder)")
+        }
         return text
     }
 }

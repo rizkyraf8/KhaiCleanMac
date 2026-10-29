@@ -142,13 +142,7 @@ final class DeveloperModel {
         let chosen = allItems.filter { selected.contains($0.url) && isSelectable($0) }
         let simulatorItems = chosen.filter { $0.simulator != nil }
         let simulatorReport = await removeSimulators(simulatorItems)
-        let trashItems = chosen.filter { $0.simulator == nil }.map { item -> CleanItem in
-            guard item.isSmart else { return CleanItem(url: item.url, size: item.size) }
-            let stale = item.staleEntries(before: cutoff)
-            return CleanItem(url: item.url, size: stale.reduce(0) { $0 + $1.size },
-                             title: L("\(item.title) (tidak dipakai)", "\(item.title) (unused)"),
-                             members: stale.map(\.url))
-        }
+        let trashItems = chosen.filter { $0.simulator == nil }.compactMap { Self.cleanItem(for: $0, cutoff: cutoff) }
         let report = trashItems.isEmpty ? CleanReport() : await Trasher.removeRecorded(trashItems, source: Module.developer.title)
         let failed = Set((report.failed + simulatorReport.failed).map(\.url))
 
@@ -158,7 +152,9 @@ final class DeveloperModel {
                     guard selected.contains(item.url), !failed.contains(item.url) else { return item }
                     guard item.isSmart else { return nil }
                     let gone = Set(item.staleEntries(before: cutoff).map(\.url))
-                    return item.removing(gone)
+                    let rest = item.removing(gone)
+                    // Nothing left to offer: drop it rather than keep an empty folder in the list.
+                    return rest.entries.isEmpty ? nil : rest
                 }
             }
             selected = failed
@@ -167,6 +163,17 @@ final class DeveloperModel {
         toast = ToastMessage(text: summary.compactMap { $0 }.joined(separator: " · "),
                              symbol: failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                              colors: Module.developer.colors)
+    }
+
+    /// What removing `item` hands to the Trasher. An entry-only cache gives only its stale entries, or
+    /// nothing at all: a CleanItem without members stands for the whole folder.
+    nonisolated static func cleanItem(for item: DevItem, cutoff: Date) -> CleanItem? {
+        guard item.isSmart else { return CleanItem(url: item.url, size: item.size) }
+        let stale = item.staleEntries(before: cutoff)
+        guard !stale.isEmpty else { return nil }
+        return CleanItem(url: item.url, size: stale.reduce(0) { $0 + $1.size },
+                         title: L("\(item.title) (tidak dipakai)", "\(item.title) (unused)"),
+                         members: stale.map(\.url))
     }
 
     /// One at a time: CoreSimulator handles a single delete at once anyway.

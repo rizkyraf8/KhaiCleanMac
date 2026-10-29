@@ -12,6 +12,8 @@ final class AppRouter {
     static let shared = AppRouter()
 
     var onboarding: OnboardingStep?
+    /// The access guide reopens at most once per launch, not every time the window does.
+    var didOfferAccessGuide = false
 
     func showOnboarding(at step: OnboardingStep = .welcome) {
         AppWindow.show()

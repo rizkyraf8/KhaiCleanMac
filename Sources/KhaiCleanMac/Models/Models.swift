@@ -321,6 +321,8 @@ struct CleanReport: Sendable {
     var removed: [RemovedItem] = []
     /// True when items were deleted for good instead of moved to the Trash.
     var permanent = false
+    /// Staging folders kept because the Trash refused them and some files couldn't go back.
+    var keptInStaging: [URL] = []
 }
 
 struct DuplicateFile: Identifiable, Hashable, Sendable {

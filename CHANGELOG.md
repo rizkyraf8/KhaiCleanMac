@@ -5,6 +5,20 @@ The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATC
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-29
+
+### Changed
+- The version button next to Settings at the bottom of the sidebar now updates in place like Home and Settings › About (download, verify, install, reopen), with its progress shown in the button. It only opens the browser download when the release has no checksum or an install failed.
+- On Home, the Full Disk Access card now sits at the top, right under the greeting.
+- While Full Disk Access is still off, the welcome guide opens again at its Full Disk Access step each time the app is launched (once per launch).
+
+### Fixed
+- **Trash rollback could delete originals** ([#3](https://github.com/rizkyraf8/KhaiCleanMac/issues/3)). When the Trash refused a staging folder and a file couldn't go back (its place was taken, or not writable), the staging folder was deleted with that file in it. It is now kept and its location shown in the result; it is only removed once it holds nothing but empty folders.
+- **Developer could remove a whole cache folder** ([#2](https://github.com/rizkyraf8/KhaiCleanMac/issues/2)). After the last stale entry of an entry-only cache (Gradle, Maven, npm…) was cleaned, the item could be selected again and removed as a whole folder, including files such as `gradle.properties` that were never offered. Entry-only is now set by the scanner instead of guessed from the entry list, an exhausted item leaves the list, and an item with nothing stale hands nothing over.
+- **Duplicates are checked again before removal** ([#4](https://github.com/rizkyraf8/KhaiCleanMac/issues/4)). A selected copy only goes when it still has the group's size and content and matches a different, unselected copy that still exists; a hard link to the kept copy doesn't count. Anything else is skipped and the result asks for a new scan. A read error while hashing now fails instead of hashing a partly read file.
+- **Uninstaller no longer preselects other apps' data** ([#5](https://github.com/rizkyraf8/KhaiCleanMac/issues/5)). Group Containers are matched to the app groups in the app's code signature, and a container another installed app also declares (such as Microsoft Office's shared one) is labelled "Shared with another installed app" and left unticked. Look-alike IDs, such as `com.vendor.editor.beta` when removing `com.vendor.editor`, are labelled as guesses in Group Containers, LaunchAgents and ByHost preferences.
+- 12 regression tests built from the scenarios in those issues (92 tests in all).
+
 ## [0.6.0] - 2026-10-29
 
 ### Added
@@ -124,6 +138,7 @@ First public release.
 - **Menu bar monitor:** shows CPU, memory, disk and battery.
 - Everything that gets removed goes to the Trash, and nothing is removed without confirmation.
 
+[0.6.1]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.3.0...v0.4.0

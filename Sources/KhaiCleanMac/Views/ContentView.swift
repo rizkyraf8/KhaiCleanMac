@@ -77,7 +77,14 @@ struct ContentView: View {
             }
         }
         .task {
-            if !AppSettings.shared.hasCompletedOnboarding && !AppInfo.isSnapshot { router.onboarding = .welcome }
+            guard !AppInfo.isSnapshot else { return }
+            if !AppSettings.shared.hasCompletedOnboarding {
+                router.onboarding = .welcome
+            } else if !router.didOfferAccessGuide && !Permissions.hasFullDiskAccess {
+                // Full Disk Access is still off: open the guide at that step again on every launch.
+                router.onboarding = .access
+            }
+            router.didOfferAccessGuide = true
         }
         // With "keep in menu bar" on, closing the window hides the Dock icon until it is reopened.
         .onAppear { NSApp.setActivationPolicy(.regular) }
@@ -204,20 +211,7 @@ private struct SidebarFooter: View {
             .help(L("Bahasa, tampilan, dan info aplikasi (⌘,)", "Language, appearance and app info (⌘,)"))
             Spacer()
             if UpdateChecker.shared.isUpdateAvailable, let latest = UpdateChecker.shared.latest {
-                Button {
-                    UpdateChecker.shared.openDownload()
-                } label: {
-                    Label(latest.version.description, systemImage: "arrow.down.circle.fill")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(Capsule().fill(LinearGradient(colors: Palette.mint, startPoint: .leading, endPoint: .trailing)))
-                }
-                .buttonStyle(.plain)
-                .help(L("Kamu memakai \(AppInfo.version). Klik untuk mengunduh \(latest.version).", "You have \(AppInfo.version). Click to download \(latest.version)."))
+                updatePill(latest.version.description)
             } else {
                 Text("v\(AppInfo.version)")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -226,6 +220,48 @@ private struct SidebarFooter: View {
             }
         }
         .padding(.top, 6)
+    }
+
+    /// The same as Home's Update button: installs in place when the release has a checksum, and falls
+    /// back to the browser download without one or after an install failed.
+    @ViewBuilder
+    private func updatePill(_ version: String) -> some View {
+        let checker = UpdateChecker.shared
+        let installs: Bool = {
+            if case .failed = checker.installStep { return false }
+            return checker.canInstallInApp
+        }()
+        if checker.installStep.isBusy {
+            HStack(spacing: 5) {
+                ProgressView().controlSize(.mini)
+                Text(InstallProgressNote.busyText(checker.installStep))
+            }
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.primary.opacity(0.06)))
+        } else {
+            Button {
+                if installs { Task { await checker.install() } } else { checker.openDownload() }
+            } label: {
+                Label(version, systemImage: installs ? "arrow.triangle.2.circlepath" : "arrow.down.circle.fill")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(LinearGradient(colors: Palette.mint, startPoint: .leading, endPoint: .trailing)))
+            }
+            .buttonStyle(.plain)
+            .help(installs
+                  ? L("Kamu memakai \(AppInfo.version). Klik untuk memperbarui ke \(version): diunduh, dicek, lalu dipasang dan dibuka ulang.",
+                      "You have \(AppInfo.version). Click to update to \(version): downloaded, verified, installed and reopened.")
+                  : L("Kamu memakai \(AppInfo.version). Klik untuk mengunduh \(version).", "You have \(AppInfo.version). Click to download \(version)."))
+        }
     }
 }
 

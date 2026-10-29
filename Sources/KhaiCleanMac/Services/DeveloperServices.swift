@@ -62,7 +62,7 @@ struct CacheEntry: Hashable, Sendable {
 
 struct DevItem: Identifiable, Hashable, Sendable {
     let url: URL
-    let size: Int64
+    var size: Int64
     let title: String
     let tool: String
     let lastUsed: Date?
@@ -71,13 +71,15 @@ struct DevItem: Identifiable, Hashable, Sendable {
     var note: String?
     /// Apps that hold this cache open while running; it is locked while one of them is.
     var lockingBundleIDs: [String] = []
-    /// Non-empty for caches cleaned entry by entry: only stale entries go, the folder stays.
+    /// For caches cleaned entry by entry: only stale entries go, the folder stays.
     var entries: [CacheEntry] = []
+    /// Cleaned entry by entry, never as a whole folder. Set by the scanner and never inferred from
+    /// `entries`: once every entry is gone the folder may still hold config or credentials.
+    var isSmart = false
     /// Set for simulator runtimes and devices, which only `simctl` may remove.
     var simulator: SimulatorTarget?
 
     var id: URL { url }
-    var isSmart: Bool { !entries.isEmpty }
 
     func staleEntries(before cutoff: Date) -> [CacheEntry] {
         entries.filter { !$0.isPinned && $0.lastUsed < cutoff }
@@ -86,6 +88,7 @@ struct DevItem: Identifiable, Hashable, Sendable {
     func removing(_ urls: Set<URL>) -> DevItem {
         var copy = self
         copy.entries.removeAll { urls.contains($0.url) }
+        copy.size = copy.entries.reduce(0) { $0 + $1.size }
         return copy
     }
 }
@@ -289,7 +292,7 @@ struct DeveloperScanner: Sendable {
         guard !entries.isEmpty else { return [] }
         return [DevItem(
             url: root, size: entries.reduce(0) { $0 + $1.size }, title: tool, tool: "~/\(path)",
-            lastUsed: entries.map(\.lastUsed).max(), lockingBundleIDs: lockedBy, entries: entries
+            lastUsed: entries.map(\.lastUsed).max(), lockingBundleIDs: lockedBy, entries: entries, isSmart: true
         )]
     }
 
@@ -338,7 +341,7 @@ struct DeveloperScanner: Sendable {
         if !entries.isEmpty {
             items.append(DevItem(
                 url: root, size: entries.reduce(0) { $0 + $1.size }, title: "Gradle", tool: "~/.gradle",
-                lastUsed: entries.map(\.lastUsed).max(), lockingBundleIDs: Self.jetBrainsIDEs, entries: entries
+                lastUsed: entries.map(\.lastUsed).max(), lockingBundleIDs: Self.jetBrainsIDEs, entries: entries, isSmart: true
             ))
         }
 
