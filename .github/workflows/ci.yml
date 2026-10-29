@@ -29,6 +29,21 @@ jobs:
           set -o pipefail
           swift test 2>&1 | tee test.log
 
+      # The released app is universal, so the Intel slice has to build and pass the tests too.
+      # SwiftPM's own test runner is arm64-only; Xcode's xctest is universal and runs under Rosetta.
+      - name: Build universal (Apple silicon + Intel)
+        run: |
+          set -o pipefail
+          swift build -c release --arch arm64 --arch x86_64 2>&1 | tee -a build.log
+
+      - name: Test on Intel (Rosetta)
+        run: |
+          set -o pipefail
+          /usr/bin/pgrep -q oahd || sudo softwareupdate --install-rosetta --agree-to-license
+          swift build --build-tests --arch x86_64 2>&1 | tee -a build.log
+          BUNDLE="$(swift build --build-tests --arch x86_64 --show-bin-path)/KhaiCleanMacTests.xctest"
+          arch -x86_64 "$(xcrun -f xctest)" "$BUNDLE" 2>&1 | tee -a test.log
+
       # Logs need a GitHub login to read; annotations show on the run summary for everyone.
       - name: Show errors on the run summary
         if: failure()

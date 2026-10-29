@@ -30,7 +30,7 @@
 
 Get the latest version of KhaiCleanMac at **[rizkyraf.id/projects/khaicleanmac](https://rizkyraf.id/projects/khaicleanmac)**, then drag the app into your Applications folder. See what's new in the [changelog](CHANGELOG.md).
 
-- Needs macOS 15 Sequoia or later on a Mac with Apple silicon (M1 or newer).
+- Needs macOS 15 Sequoia or later, on a Mac with Apple silicon or an Intel processor (from 0.7.0; 0.6.1 and older are Apple silicon only).
 - The app isn't notarized by Apple yet, so macOS may stop it the first time you open it. Open **System Settings › Privacy & Security** and click **Open Anyway**. You only need to do this once.
 - On first launch, the welcome guide walks you through Full Disk Access. It's optional, but some scans need it.
 - **Updates:** once a day the app asks `rizkyraf.id/api/projects/khaicleanmac/latest` for the newest version. When a newer one is out, Home, the sidebar and Settings → About offer an **Update** button: the app downloads the new DMG, checks its SHA-256 checksum, version and code signature, swaps itself and reopens. If any check fails, nothing is replaced and you can download it manually instead. Only the app's version is sent, and you can turn the check off in Settings → About. (In-app updates work from 0.5.0 on; 0.4.0 and older need one manual download.)
@@ -110,7 +110,7 @@ cd KhaiCleanMac
 open build/KhaiCleanMac.app
 ```
 
-`build-app.sh` compiles a release build, generates the app icon and puts together `build/KhaiCleanMac.app`. While developing you can also use `swift run`, or open `Package.swift` in Xcode.
+`build-app.sh` compiles a universal release build (Apple silicon and Intel in one app), generates the app icon and puts together `build/KhaiCleanMac.app`. Set `KHAI_ARCH=arm64` (or `x86_64`) for a quicker single-architecture build. While developing you can also use `swift run`, or open `Package.swift` in Xcode.
 
 If you use [swiftly](https://github.com/swiftlang/swiftly), the `.swift-version` file makes it use Xcode's Swift toolchain in this folder.
 

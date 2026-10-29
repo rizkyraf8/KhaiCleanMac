@@ -27,7 +27,7 @@
 
 Unduh versi terbaru KhaiCleanMac di **[rizkyraf.id/projects/khaicleanmac](https://rizkyraf.id/projects/khaicleanmac)**, lalu seret aplikasinya ke folder Applications. Lihat apa yang baru di [changelog](CHANGELOG.md).
 
-- Butuh macOS 15 Sequoia atau lebih baru, di Mac dengan Apple silicon (M1 atau lebih baru).
+- Butuh macOS 15 Sequoia atau lebih baru, di Mac dengan Apple silicon atau prosesor Intel (mulai 0.7.0; versi 0.6.1 ke bawah hanya untuk Apple silicon).
 - Aplikasi ini belum di-notarize Apple, jadi macOS mungkin menahannya saat pertama kali dibuka. Buka **Pengaturan Sistem › Privasi & Keamanan**, lalu klik **Buka Saja**. Ini hanya perlu sekali.
 - Saat pertama dibuka, panduan awal akan memandu pengaturan Akses Disk Penuh. Izin ini opsional, tapi beberapa pemindaian membutuhkannya.
 - **Pembaruan:** sekali sehari aplikasi menanyakan versi terbaru ke `rizkyraf.id/api/projects/khaicleanmac/latest`. Kalau ada versi lebih baru, Beranda, sidebar, dan Pengaturan → Tentang menampilkan tombol **Perbarui**: aplikasi mengunduh DMG baru, mengecek checksum SHA-256, versi, dan tanda tangan kodenya, menggantikan dirinya, lalu terbuka lagi. Kalau ada pengecekan yang gagal, tidak ada yang diganti dan kamu bisa mengunduh manual. Yang dikirim hanya versi aplikasi, dan pengecekan ini bisa dimatikan di Pengaturan → Tentang. (Update di dalam aplikasi berlaku mulai 0.5.0; versi 0.4.0 ke bawah perlu satu kali unduh manual.)
@@ -107,7 +107,7 @@ cd KhaiCleanMac
 open build/KhaiCleanMac.app
 ```
 
-`build-app.sh` meng-compile versi release, membuat ikon aplikasi, dan menyusun `build/KhaiCleanMac.app`. Saat pengembangan, bisa juga memakai `swift run` atau membuka `Package.swift` di Xcode.
+`build-app.sh` meng-compile versi release universal (Apple silicon dan Intel dalam satu app), membuat ikon aplikasi, dan menyusun `build/KhaiCleanMac.app`. Pakai `KHAI_ARCH=arm64` (atau `x86_64`) untuk build satu arsitektur yang lebih cepat. Saat pengembangan, bisa juga memakai `swift run` atau membuka `Package.swift` di Xcode.
 
 Kalau Anda memakai [swiftly](https://github.com/swiftlang/swiftly), file `.swift-version` membuat swiftly memakai toolchain Swift dari Xcode di folder ini.
 

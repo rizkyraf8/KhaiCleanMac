@@ -23,14 +23,22 @@ if [[ ! -f "$ICON" || "$ARTWORK" -nt "$ICON" ]]; then
     rm -rf "$WORK"
 fi
 
-echo "→ Compile (release)"
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)/KhaiCleanMac"
+# Universal by default, so the same app runs on Apple silicon and Intel Macs.
+# KHAI_ARCH=arm64 (or x86_64) builds a single slice, which is quicker while developing.
+case "${KHAI_ARCH:-universal}" in
+    universal) ARCHS=(--arch arm64 --arch x86_64) ;;
+    arm64|x86_64) ARCHS=(--arch "$KHAI_ARCH") ;;
+    *) echo "✗ KHAI_ARCH harus universal, arm64, atau x86_64" >&2; exit 1 ;;
+esac
+echo "→ Compile (release, ${KHAI_ARCH:-universal})"
+swift build -c release "${ARCHS[@]}"
+BIN="$(swift build -c release "${ARCHS[@]}" --show-bin-path)/KhaiCleanMac"
 
 echo "→ Menyusun $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/KhaiCleanMac"
+echo "→ Arsitektur: $(lipo -archs "$APP/Contents/MacOS/KhaiCleanMac")"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 

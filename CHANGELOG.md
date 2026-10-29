@@ -5,6 +5,12 @@ The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATC
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-29
+
+### Added
+- **Intel Macs.** `scripts/build-app.sh` now builds a universal app (Apple silicon and Intel in one binary, both requiring macOS 15). `KHAI_ARCH=arm64` or `x86_64` builds a single slice for quicker local builds.
+- CI also builds the universal release and runs the whole test suite as x86_64 under Rosetta, through Xcode's `xctest` (SwiftPM's own test runner is arm64-only).
+
 ## [0.6.1] - 2026-10-29
 
 ### Changed
@@ -138,6 +144,7 @@ First public release.
 - **Menu bar monitor:** shows CPU, memory, disk and battery.
 - Everything that gets removed goes to the Trash, and nothing is removed without confirmation.
 
+[0.7.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.4.0...v0.5.0
