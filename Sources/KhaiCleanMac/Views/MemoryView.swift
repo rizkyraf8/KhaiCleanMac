@@ -283,25 +283,28 @@ private struct AppMemoryRow: View {
                 .resizable()
                 .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 4) {
+                Text(app.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                // The count sits next to the bar, so on a narrow window the name keeps the whole line.
                 HStack(spacing: 6) {
-                    Text(app.name)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
+                    GeometryReader { geo in
+                        Capsule().fill(Color.primary.opacity(0.06))
+                            .overlay(alignment: .leading) {
+                                Capsule()
+                                    .fill(LinearGradient(colors: Module.memory.colors, startPoint: .leading, endPoint: .trailing))
+                                    .frame(width: geo.size.width * share)
+                            }
+                    }
+                    .frame(height: 4)
                     if app.processCount > 1 {
                         Text(L("\(app.processCount) proses", "\(app.processCount) processes"))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize()
                     }
                 }
-                GeometryReader { geo in
-                    Capsule().fill(Color.primary.opacity(0.06))
-                        .overlay(alignment: .leading) {
-                            Capsule()
-                                .fill(LinearGradient(colors: Module.memory.colors, startPoint: .leading, endPoint: .trailing))
-                                .frame(width: geo.size.width * share)
-                        }
-                }
-                .frame(height: 4)
             }
             Text(app.footprint.formattedMemory)
                 .font(.system(size: 13, weight: .bold, design: .rounded))

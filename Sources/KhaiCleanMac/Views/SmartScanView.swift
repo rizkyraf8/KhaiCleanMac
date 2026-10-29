@@ -108,25 +108,29 @@ struct SmartScanView: View {
             }
         } else {
             VStack(spacing: 18) {
-                summaryCard
-                if !model.inUseApps.isEmpty || model.hasSystemOwners {
-                    inUseNotice
-                }
-                if let update = model.chromeUpdate {
-                    ChromeUpdateNotice(update: update, isChromeRunning: model.isChromeRunning)
-                }
+                // Everything but the action bar scrolls, so the notices can't squeeze the categories
+                // into a sliver on a small screen.
                 ScrollView {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
-                        ForEach(model.categories) { category in
-                            CategoryCard(
-                                category: category,
-                                state: model.selectionState(of: category),
-                                selectedSize: model.selectedSize(in: category),
-                                inUseCount: model.inUseCount(in: category),
-                                needsAccess: category.kind.needsFullDiskAccess && !model.hasFullDiskAccess && category.items.isEmpty,
-                                onToggle: { model.toggle(category) },
-                                onDetails: { detailKind = category.kind }
-                            )
+                    VStack(spacing: 18) {
+                        summaryCard
+                        if !model.inUseApps.isEmpty || model.hasSystemOwners {
+                            inUseNotice
+                        }
+                        if let update = model.chromeUpdate {
+                            ChromeUpdateNotice(update: update, isChromeRunning: model.isChromeRunning)
+                        }
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
+                            ForEach(model.categories) { category in
+                                CategoryCard(
+                                    category: category,
+                                    state: model.selectionState(of: category),
+                                    selectedSize: model.selectedSize(in: category),
+                                    inUseCount: model.inUseCount(in: category),
+                                    needsAccess: category.kind.needsFullDiskAccess && !model.hasFullDiskAccess && category.items.isEmpty,
+                                    onToggle: { model.toggle(category) },
+                                    onDetails: { detailKind = category.kind }
+                                )
+                            }
                         }
                     }
                     .padding(4)

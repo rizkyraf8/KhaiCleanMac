@@ -303,11 +303,16 @@ struct StatTile: View {
             Capsule()
                 .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
                 .frame(width: 26, height: 5)
+            // One line each, shrinking a little rather than breaking "3.42 GB" over two lines in a narrow window.
             Text(title)
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text(value)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -316,6 +321,26 @@ struct StatTile: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(LinearGradient.soft(colors).opacity(scheme == .dark ? 0.14 : 0.12))
         )
+    }
+}
+
+/// Says that the languages other than Indonesian and English were translated with AI, with a way to report mistakes.
+struct AITranslationNote: View {
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(LinearGradient.soft(Palette.lavender))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L("Terjemahan selain Bahasa Indonesia dan English dibuat dengan AI, jadi mungkin ada yang kurang tepat.",
+                       "Languages other than Bahasa Indonesia and English were translated with AI, so some wording may be off."))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Link(L("Laporkan kesalahan terjemahan", "Report a translation mistake"),
+                     destination: AppInfo.repository.appending(path: "issues"))
+                    .fontWeight(.semibold)
+            }
+        }
+        .font(.system(size: 11))
     }
 }
 

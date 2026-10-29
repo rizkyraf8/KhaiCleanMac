@@ -54,7 +54,10 @@ KhaiCleanMac removes files, so these rules are not optional:
 ## Code style
 
 - Match the surrounding code: SwiftUI, `@Observable` models, Swift 6 concurrency.
-- Every user-facing string uses `L("Bahasa Indonesia", "English")`.
+- Every user-facing string uses `L("Bahasa Indonesia", "English")`. The other seven languages
+  are looked up by the English text, one file each in `Sources/KhaiCleanMac/Localization/Translations+<code>.swift`.
+  After adding or changing a string, run `scripts/l10n.py missing` to see what needs a translation and
+  `scripts/l10n.py check` to confirm (CI runs it). Changing the English text changes the key.
 - Use the shared design pieces (`softCard`, `GradientIcon`, `GradientButtonStyle`, `Palette`)
   so screens stay consistent.
 - Keep comments short and about *why*, not *what*.
@@ -76,5 +79,7 @@ KhaiCleanMac removes files, so these rules are not optional:
   proyek boleh memakai kontribusimu di versi KhaiCleanMac mana pun, termasuk versi komersial.
 - Aturan keamanan di atas wajib diikuti. Yang terpenting: semua penghapusan lewat `Trasher`,
   selalu ada konfirmasi pengguna, dan logika penghapusan baru harus punya test.
+- Teks baru ditulis dengan `L("Indonesia", "English")`, lalu terjemahan ketujuh bahasa lain
+  ditambahkan di `Localization/Translations+<kode>.swift`. `scripts/l10n.py check` memastikan tidak ada yang terlewat.
 - Alurnya: fork → buat branch → ubah dan tambah test → `swift build` dan `swift test` →
   catat di CHANGELOG → buka pull request.

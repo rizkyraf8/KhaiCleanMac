@@ -5,6 +5,23 @@ The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATC
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-29
+
+### Added
+- **Seven more languages:** Japanese, Simplified Chinese, Spanish, German, Brazilian Portuguese, French and Korean (日本語, 简体中文, Español, Deutsch, Português (Brasil), Français, 한국어), for all 577 texts in the app. A new install starts in the Mac's own language when the app speaks it (any Portuguese gets the Brazilian one); otherwise English (Traditional Chinese gets English rather than Simplified). A saved choice is kept.
+- **These seven languages were translated with AI**, not by native speakers, so some wording may be off. Settings › General says so under the language picker, as does the welcome guide when one of them is chosen, with a link to report mistakes on GitHub.
+- The language picker in Settings › General shows all nine languages in a 3 × 3 grid; the welcome guide has a language menu instead of a row of chips.
+- `scripts/l10n.py`: `missing [code]` lists texts without a translation, `check` fails on missing, stale or broken entries in any language. CI runs the check. Each language has its own file, `Localization/Translations+<code>.swift`.
+
+### Changed
+- `L("Indonesian", "English")` call sites are unchanged. Each English text now doubles as the key for the other languages, with its interpolated values as `%1$@`, `%2$@`… so a translation can reorder them or leave out an English plural. Anything not yet translated falls back to English.
+
+### Fixed
+- **Smart Scan on small screens:** the summary and the notices above the results (open apps, Chrome waiting to relaunch) didn't scroll, so on a 13-inch laptop the categories were squeezed into a small strip. Everything but the Clean bar scrolls now.
+- **Memory on small screens:** app names were cut to a few letters and "36 processes" broke over two lines. The process count now sits next to the usage bar, leaving the name its own line.
+- Number tiles (Uninstaller, Login Items, Extensions, App Updates) keep their title and value on one line, shrinking slightly instead of breaking "3.42 GB" in two.
+- Debug snapshots take `--small` to render every screen at the smallest window size.
+
 ## [0.7.0] - 2026-10-29
 
 ### Added
@@ -144,6 +161,7 @@ First public release.
 - **Menu bar monitor:** shows CPU, memory, disk and battery.
 - Everything that gets removed goes to the Trash, and nothing is removed without confirmation.
 
+[0.8.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.5.0...v0.6.0

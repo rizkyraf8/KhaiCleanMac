@@ -19,6 +19,10 @@ jobs:
       - name: Toolchain
         run: swift --version
 
+      # Every L("…", "…") text needs its Japanese, Chinese and Spanish entry; see Localization/Translations.swift.
+      - name: Translations
+        run: python3 scripts/l10n.py check
+
       - name: Build
         run: |
           set -o pipefail

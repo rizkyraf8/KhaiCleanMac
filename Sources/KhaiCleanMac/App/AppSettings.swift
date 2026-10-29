@@ -4,6 +4,13 @@ import SwiftUI
 enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
     case indonesian = "id"
     case english = "en"
+    case japanese = "ja"
+    case chinese = "zh-Hans"
+    case spanish = "es"
+    case german = "de"
+    case portuguese = "pt-BR"
+    case french = "fr"
+    case korean = "ko"
 
     var id: String { rawValue }
 
@@ -12,6 +19,13 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .indonesian: "Bahasa Indonesia"
         case .english: "English"
+        case .japanese: "日本語"
+        case .chinese: "简体中文"
+        case .spanish: "Español"
+        case .german: "Deutsch"
+        case .portuguese: "Português (Brasil)"
+        case .french: "Français"
+        case .korean: "한국어"
         }
     }
 
@@ -19,11 +33,54 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .indonesian: "🇮🇩"
         case .english: "🇬🇧"
+        case .japanese: "🇯🇵"
+        case .chinese: "🇨🇳"
+        case .spanish: "🇪🇸"
+        case .german: "🇩🇪"
+        case .portuguese: "🇧🇷"
+        case .french: "🇫🇷"
+        case .korean: "🇰🇷"
         }
     }
 
     var locale: Locale {
-        Locale(identifier: self == .indonesian ? "id_ID" : "en_US")
+        switch self {
+        case .indonesian: Locale(identifier: "id_ID")
+        case .english: Locale(identifier: "en_US")
+        case .japanese: Locale(identifier: "ja_JP")
+        case .chinese: Locale(identifier: "zh_Hans_CN")
+        case .spanish: Locale(identifier: "es_ES")
+        case .german: Locale(identifier: "de_DE")
+        case .portuguese: Locale(identifier: "pt_BR")
+        case .french: Locale(identifier: "fr_FR")
+        case .korean: Locale(identifier: "ko_KR")
+        }
+    }
+
+    /// Written by people; every other language was translated with AI and may have mistakes.
+    var isAITranslated: Bool { self != .indonesian && self != .english }
+
+    /// The first of the Mac's preferred languages the app speaks, for someone who hasn't picked one yet.
+    static func preferred(from languages: [String] = Locale.preferredLanguages) -> AppLanguage {
+        for identifier in languages {
+            let locale = Locale(identifier: identifier)
+            switch locale.language.languageCode?.identifier {
+            case "id", "in", "ms": return .indonesian
+            case "en": return .english
+            case "ja": return .japanese
+            case "es": return .spanish
+            case "de": return .german
+            // Brazilian Portuguese is the one on offer, and still reads better than English in Portugal.
+            case "pt": return .portuguese
+            case "fr": return .french
+            case "ko": return .korean
+            // Traditional Chinese reads Simplified, but not the other way round: only Hans counts.
+            case "zh" where locale.language.script?.identifier != "Hant"
+                && !["TW", "HK", "MO"].contains(locale.region?.identifier ?? ""): return .chinese
+            default: continue
+            }
+        }
+        return .english
     }
 }
 
@@ -144,7 +201,7 @@ final class AppSettings: @unchecked Sendable {
     private init() {
         let defaults = UserDefaults.standard
         Self.migrateLegacyPreferences(into: defaults)
-        language = defaults.string(forKey: Keys.language).flatMap(AppLanguage.init) ?? .indonesian
+        language = defaults.string(forKey: Keys.language).flatMap(AppLanguage.init) ?? AppLanguage.preferred()
         appearance = defaults.string(forKey: Keys.appearance).flatMap(AppAppearance.init) ?? .system
         keepInMenuBar = defaults.object(forKey: Keys.keepInMenuBar) as? Bool ?? true
         remindersEnabled = defaults.bool(forKey: Keys.remindersEnabled)
@@ -233,7 +290,3 @@ struct LocalizedRoot<Content: View>: View {
     }
 }
 
-/// Picks the Indonesian or English text for the current language.
-func L(_ indonesian: String, _ english: String) -> String {
-    AppSettings.shared.language == .english ? english : indonesian
-}

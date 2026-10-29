@@ -2,6 +2,7 @@
 import SwiftUI
 
 /// Debug-only: `KhaiCleanMac --snapshot <folder>` renders every module to PNG and quits.
+/// `--small` renders the main window at the smallest size the app allows, as on a 13-inch laptop.
 /// Handy for checking the UI without Screen Recording permission.
 @MainActor
 enum Snapshot {
@@ -104,7 +105,9 @@ enum Snapshot {
     }
 
     private static func render(_ view: some View, name: String, scheme: NSAppearance.Name, folder: URL, settle: Double,
-                               size: NSSize = NSSize(width: 1120, height: 860)) async {
+                               size: NSSize? = nil) async {
+                let small = CommandLine.arguments.contains("--small")
+                let size = size ?? (small ? NSSize(width: 1000, height: 760) : NSSize(width: 1120, height: 860))
                 let window = NSWindow(
                     contentRect: NSRect(origin: .zero, size: size),
                     styleMask: [.titled, .fullSizeContentView],
@@ -122,8 +125,8 @@ enum Snapshot {
                 host.layoutSubtreeIfNeeded()
                 if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
                     host.cacheDisplay(in: host.bounds, to: rep)
-                    let language = AppSettings.shared.language == .english ? "-en" : ""
-                    let suffix = language + (scheme == .darkAqua ? "-dark" : "")
+                    let language = AppSettings.shared.language == .indonesian ? "" : "-\(AppSettings.shared.language.rawValue)"
+                    let suffix = language + (scheme == .darkAqua ? "-dark" : "") + (small ? "-small" : "")
                     try? rep.representation(using: .png, properties: [:])?
                         .write(to: folder.appending(path: "\(name)\(suffix).png"))
                 }

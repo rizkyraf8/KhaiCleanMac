@@ -91,21 +91,29 @@ private struct GeneralTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             SettingsSection(title: L("Bahasa", "Language"), symbol: "globe") {
-                HStack(spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                          spacing: 12) {
                     ForEach(AppLanguage.allCases) { language in
                         OptionCard(isSelected: settings.language == language, colors: Palette.mint) {
                             settings.language = language
                         } content: {
-                            HStack(spacing: 10) {
+                            // Three to a row, so "Bahasa Indonesia" needs a smaller flag and may shrink a little.
+                            HStack(spacing: 8) {
                                 Text(language.flag)
-                                    .font(.system(size: 24))
+                                    .font(.system(size: 20))
+                                    .fixedSize()
                                 Text(language.nativeName)
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                Spacer(minLength: 24)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .layoutPriority(1)
+                                Spacer(minLength: 0)
                             }
                         }
                     }
                 }
+                AITranslationNote()
+                    .padding(.top, 10)
             }
 
             SettingsSection(title: L("Saat Mac menyala", "Startup"), symbol: "power") {

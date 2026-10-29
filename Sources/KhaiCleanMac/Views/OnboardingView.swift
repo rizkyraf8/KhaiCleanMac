@@ -130,10 +130,19 @@ struct OnboardingView: View {
                 Text(L("Bahasa", "Language"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                ForEach(AppLanguage.allCases) { language in
-                    Chip(title: "\(language.flag) \(language.nativeName)", count: nil, colors: Palette.logo,
-                         isSelected: settings.language == language) { settings.language = language }
+                // A menu, as nine languages no longer fit side by side as chips.
+                Picker(L("Bahasa", "Language"), selection: $settings.language) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text("\(language.flag)  \(language.nativeName)").tag(language)
+                    }
                 }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .fixedSize()
+            }
+            if settings.language.isAITranslated {
+                AITranslationNote()
+                    .frame(maxWidth: 480)
             }
         }
     }
