@@ -95,7 +95,7 @@ struct DeveloperView: View {
 
     @ViewBuilder
     private var resultsView: some View {
-        if model.categories.isEmpty && model.result.commands.isEmpty {
+        if model.categories.isEmpty && model.result.commands.isEmpty && model.docker == .notInstalled {
             EmptyStateView(
                 symbol: "checkmark.seal.fill",
                 colors: module.colors,
@@ -112,6 +112,9 @@ struct DeveloperView: View {
                     VStack(spacing: 16) {
                         ForEach(model.categories) { category in
                             DevSection(model: model, category: category)
+                        }
+                        if model.docker != .notInstalled {
+                            DockerCard(model: model)
                         }
                         if !model.result.commands.isEmpty {
                             CommandsCard(model: model)
@@ -295,6 +298,157 @@ private struct DevItemRow: View {
         }
         return L("\(stale.formatted()) entri tidak dipakai · \(kept) masih dipakai, tetap disimpan",
                  "\(stale.formatted()) unused entries · \(kept) still in use, kept")
+    }
+}
+
+/// Cleans Docker through its own CLI, by age. Its data sits in a disk image only the engine reads,
+/// so this is the one place in Developer where removal is permanent by nature.
+struct DockerCard: View {
+    @Bindable var model: DeveloperModel
+    @State private var confirm = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                GradientIcon(symbol: "shippingbox.fill", colors: Palette.sky, size: 42)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text("Docker")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                        if case .ready(let engine) = model.docker {
+                            Text(L("Lokal · \(engine.context)", "Local · \(engine.context)"))
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundStyle(Palette.mint[1])
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Palette.mint[1].opacity(0.15)))
+                        }
+                    }
+                    Text(L("Image yang tidak dipakai container mana pun dan build cache yang dibuat lebih dari batas umur, dihapus oleh Docker sendiri. Docker tidak mencatat kapan terakhir dipakai, jadi umur dihitung dari tanggal dibuat. Volume dan container yang berjalan tidak pernah disentuh.",
+                           "Images no container uses and build cache created longer ago than the age limit, removed by Docker itself. Docker doesn't record when something was last used, so age counts from creation. Volumes and running containers are never touched."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if model.isCleaningDocker { ProgressView().controlSize(.small) }
+            }
+
+            switch model.docker {
+            case .notInstalled:
+                EmptyView()
+            case .notRunning:
+                notice("pause.circle.fill", Palette.sunny,
+                       L("Docker tidak berjalan. Buka Docker Desktop, OrbStack, atau Colima, lalu periksa lagi.",
+                         "Docker isn't running. Open Docker Desktop, OrbStack or Colima, then check again."))
+            case .timedOut:
+                notice("hourglass", Palette.sunny,
+                       L("Docker tidak merespons. Coba mulai ulang Docker, lalu periksa lagi.",
+                         "Docker isn't responding. Try restarting Docker, then check again."))
+            case .notLocal(let context, let host):
+                notice("network.badge.shield.half.filled", Palette.berry, context.isEmpty
+                       ? L("Tidak bisa memastikan Docker berjalan di Mac ini, jadi tidak ada yang dibersihkan.",
+                           "Couldn't confirm that Docker runs on this Mac, so nothing is cleaned.")
+                       : L("Context Docker yang aktif (\(context)) mengarah ke \(host), bukan Mac ini. KhaiCleanMac hanya membersihkan Docker lokal. Pindah ke context lokal (misalnya docker context use desktop-linux), lalu periksa lagi.",
+                           "The active Docker context (\(context)) points to \(host), not this Mac. KhaiCleanMac only cleans a local Docker. Switch to a local context (for example docker context use desktop-linux), then check again."))
+            case .ready(let engine):
+                ready(engine)
+            }
+        }
+        .softCard()
+        .alert(L("Bersihkan Docker?", "Clean Docker?"), isPresented: $confirm) {
+            Button(L("Bersihkan", "Clean"), role: .destructive) { Task { await model.cleanDocker() } }
+            Button(L("Batal", "Cancel"), role: .cancel) {}
+        } message: {
+            Text(confirmation)
+        }
+    }
+
+    @ViewBuilder
+    private func ready(_ engine: DockerEngine) -> some View {
+        let usage = engine.usage
+        let oldContainers = engine.containers(olderThan: model.dockerAge)
+        HStack(spacing: 10) {
+            StatTile(title: L("Image tak terpakai", "Unused images"), value: usage.images.reclaimable.formattedBytes, colors: Palette.sky)
+            StatTile(title: L("Build cache", "Build cache"), value: usage.buildCache.reclaimable.formattedBytes, colors: Palette.mint)
+            StatTile(title: L("Container berhenti", "Stopped containers"), value: "\(engine.stoppedContainers.count)", colors: Palette.lavender)
+        }
+        HStack(spacing: 12) {
+            Text(L("Dibuat lebih dari", "Created over"))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize()
+            Picker(L("Dibuat lebih dari", "Created over"), selection: $model.dockerAge) {
+                ForEach(DockerAge.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 220)
+            .disabled(model.isCleaningDocker)
+            Spacer(minLength: 8)
+            Button {
+                confirm = true
+            } label: {
+                Label(L("Bersihkan Docker", "Clean Docker"), systemImage: "shippingbox")
+            }
+            .buttonStyle(GradientButtonStyle(colors: Palette.sky))
+            .disabled(model.isCleaningDocker || (usage.images.reclaimable + usage.buildCache.reclaimable == 0 && model.dockerContainersToRemove.isEmpty))
+        }
+        if !oldContainers.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: $model.includeStoppedContainers) {
+                    Text(L("Ikut hapus \(oldContainers.count) container yang sudah berhenti", "Also remove \(oldContainers.count) stopped containers"))
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .toggleStyle(.checkbox)
+                .disabled(model.isCleaningDocker)
+                Text(L("File di dalam container (semua yang tidak disimpan di volume, misalnya database tanpa -v) ikut hilang. Umurnya dihitung dari tanggal container dibuat, bukan terakhir dijalankan.",
+                       "Files inside a container (anything not kept in a volume, such as a database run without -v) go with it. Age counts from when the container was created, not when it last ran."))
+                    .font(.system(size: 11))
+                    .foregroundStyle(model.includeStoppedContainers ? Palette.berry[1] : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(Self.names(oldContainers))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.03)))
+        }
+        Text(L("Docker melaporkan hingga \(usage.reclaimable.formattedBytes) yang bisa dibersihkan tanpa batas umur; dengan batas umur hasilnya bisa lebih kecil. Docker Desktop mengembalikan ruang ke macOS secara bertahap, jadi ruang kosong bisa baru bertambah beberapa saat kemudian.",
+               "Docker reports up to \(usage.reclaimable.formattedBytes) reclaimable without an age limit; with it, less may go. Docker Desktop hands space back to macOS gradually, so free space may grow a little later."))
+            .font(.system(size: 11))
+            .foregroundStyle(.tertiary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func notice(_ symbol: String, _ colors: [Color], _ text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundStyle(colors[1])
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            Button(L("Periksa Lagi", "Check Again")) { Task { await model.refreshDocker() } }
+                .buttonStyle(SoftButtonStyle())
+        }
+    }
+
+    private static func names(_ containers: [DockerContainer]) -> String {
+        let shown = containers.prefix(6).map(\.name).joined(separator: ", ")
+        return containers.count > 6 ? shown + L(", dan \(containers.count - 6) lagi", ", and \(containers.count - 6) more") : shown
+    }
+
+    private var confirmation: String {
+        var text = L("Image yang tidak dipakai dan build cache yang dibuat lebih dari \(model.dockerAge.label) lalu dihapus permanen oleh Docker, tidak lewat Trash. Image bisa diunduh ulang saat dibutuhkan. Volume tidak disentuh.",
+                     "Unused images and build cache created over \(model.dockerAge.label) ago are deleted for good by Docker, not moved to the Trash. Images can be pulled again when needed. Volumes aren't touched.")
+        let containers = model.dockerContainersToRemove
+        if !containers.isEmpty {
+            text += L("\n\nJuga \(containers.count) container yang sudah berhenti, beserta file di dalamnya: \(Self.names(containers)).",
+                      "\n\nAlso \(containers.count) stopped containers, with the files inside them: \(Self.names(containers)).")
+        }
+        return text
     }
 }
 

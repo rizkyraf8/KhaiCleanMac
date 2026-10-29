@@ -73,7 +73,7 @@ final class PrivacyModel {
         if result.failedDatabases > 0 {
             text += L(" · \(result.failedDatabases) database terkunci", " · \(result.failedDatabases) databases locked")
         }
-        let problem = !result.report.failed.isEmpty || !result.report.blocked.isEmpty || result.failedDatabases > 0
+        let problem = !result.report.isComplete || result.failedDatabases > 0
         toast = ToastMessage(text: text, symbol: problem ? "exclamationmark.triangle.fill" : "checkmark.circle.fill", colors: Module.privacy.colors)
         await load()
     }

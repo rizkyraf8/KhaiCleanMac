@@ -234,9 +234,9 @@ struct SmartScanView: View {
             ? L("\(report.movedCount) item dihapus permanen.", "\(report.movedCount) \(report.movedCount == 1 ? "item" : "items") deleted permanently.")
             : L("\(report.movedCount) item dipindahkan ke Trash. Kosongkan Trash untuk benar-benar membebaskan ruang disk.",
                 "\(report.movedCount) \(report.movedCount == 1 ? "item" : "items") moved to the Trash. Empty the Trash to actually free up disk space.")
-        if !report.failed.isEmpty {
-            text += L("\n\(report.failed.count) item dilewati karena sedang dipakai atau dilindungi sistem.",
-                      "\n\(report.failed.count) skipped because they are in use or protected by the system.")
+        if !report.unremoved.isEmpty {
+            text += L("\n\(report.unremoved.count) item dilewati karena sedang dipakai atau dilindungi sistem.",
+                      "\n\(report.unremoved.count) skipped because they are in use or protected by the system.")
         }
         if !model.skippedApps.isEmpty {
             let apps = model.skippedApps.joined(separator: ", ")
