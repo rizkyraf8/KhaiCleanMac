@@ -507,8 +507,8 @@ enum Simulators {
     static func remove(_ target: SimulatorTarget) -> Bool {
         guard let simctl else { return false }
         switch target {
-        case .runtime(let identifier): return StartupScanner.run(simctl, ["runtime", "delete", identifier]) != nil
-        case .device(let udid): return StartupScanner.run(simctl, ["delete", udid]) != nil
+        case .runtime(let identifier): return StartupScanner.run(simctl, ["runtime", "delete", identifier], timeout: 600) != nil
+        case .device(let udid): return StartupScanner.run(simctl, ["delete", udid], timeout: 300) != nil
         }
     }
 }

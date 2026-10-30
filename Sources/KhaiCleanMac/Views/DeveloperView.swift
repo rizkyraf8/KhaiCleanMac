@@ -131,7 +131,7 @@ struct DeveloperView: View {
                     buttonTitle: Removal.actionTitle,
                     buttonSymbol: "trash",
                     colors: module.colors,
-                    isDisabled: model.selected.isEmpty
+                    isDisabled: model.selected.isEmpty || model.isCleaning
                 ) {
                     confirmTrash = true
                 }
@@ -443,6 +443,8 @@ struct DockerCard: View {
     private var confirmation: String {
         var text = L("Image yang tidak dipakai dan build cache yang dibuat lebih dari \(model.dockerAge.label) lalu dihapus permanen oleh Docker, tidak lewat Trash. Image bisa diunduh ulang saat dibutuhkan. Volume tidak disentuh.",
                      "Unused images and build cache created over \(model.dockerAge.label) ago are deleted for good by Docker, not moved to the Trash. Images can be pulled again when needed. Volumes aren't touched.")
+        text += L(" Image yang dibuat di Mac ini (build lokal, docker commit atau load) tidak ada di registry, jadi tidak ikut dihapus.",
+                  " Images made on this Mac (local builds, docker commit or load) aren't in a registry, so they're kept.")
         let containers = model.dockerContainersToRemove
         if !containers.isEmpty {
             text += L("\n\nJuga \(containers.count) container yang sudah berhenti, beserta file di dalamnya: \(Self.names(containers)).",

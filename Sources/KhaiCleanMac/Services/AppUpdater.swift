@@ -79,21 +79,25 @@ enum AppUpdater {
         }
     }
 
-    /// When the running app is signed with a certificate, the update must be signed with that same one.
-    /// An ad-hoc signed app has no certificate to compare, so the checksum is the check there.
+    /// When the running app is signed with a certificate, the update must come from the same signer: the
+    /// same Apple Team ID (which survives a renewed certificate), or, for a self-made certificate without
+    /// one, that same certificate. An ad-hoc signed app has neither, so the checksum is the check there.
     static func sameSigner(_ app: URL, as current: URL) -> Bool {
-        guard let mine = leafCertificate(current) else { return true }
-        return leafCertificate(app) == mine
+        guard let mine = signer(current) else { return true }
+        guard let theirs = signer(app) else { return false }
+        if let team = mine.team { return theirs.team == team }
+        return theirs.leaf == mine.leaf
     }
 
-    private static func leafCertificate(_ app: URL) -> Data? {
+    private static func signer(_ app: URL) -> (team: String?, leaf: Data)? {
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(app as CFURL, [], &code) == errSecSuccess, let code else { return nil }
         var info: CFDictionary?
         guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
-              let certificates = (info as? [String: Any])?[kSecCodeInfoCertificates as String] as? [SecCertificate],
+              let signing = info as? [String: Any],
+              let certificates = signing[kSecCodeInfoCertificates as String] as? [SecCertificate],
               let leaf = certificates.first else { return nil }
-        return SecCertificateCopyData(leaf) as Data
+        return (signing[kSecCodeInfoTeamIdentifier as String] as? String, SecCertificateCopyData(leaf) as Data)
     }
 
     /// Hands over to a small script that waits for this app to quit, swaps the bundles, and opens the

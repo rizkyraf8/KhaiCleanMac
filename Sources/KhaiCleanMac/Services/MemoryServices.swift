@@ -34,7 +34,10 @@ struct MemoryStats: Sendable {
 
         let page = UInt64(getpagesize())
         let total = ProcessInfo.processInfo.physicalMemory
-        let app = (UInt64(stats.internal_page_count) &- UInt64(stats.purgeable_count)) * page
+        // Purgeable pages are counted as cache; never let them take "app" memory below zero.
+        let appPages = UInt64(stats.internal_page_count) > UInt64(stats.purgeable_count)
+            ? UInt64(stats.internal_page_count) - UInt64(stats.purgeable_count) : 0
+        let app = appPages * page
         let wired = UInt64(stats.wire_count) * page
         let compressed = UInt64(stats.compressor_page_count) * page
         let cached = (UInt64(stats.external_page_count) + UInt64(stats.purgeable_count)) * page
@@ -106,10 +109,21 @@ enum AppMemoryScanner {
         return result == 0 ? info.ri_phys_footprint : nil
     }
 
-    /// The outermost .app a process lives in, so helpers inside Frameworks count towards their app.
-    private static func enclosingApp(of path: String) -> URL? {
-        guard let range = path.range(of: ".app/") else { return nil }
-        return URL(filePath: String(path[..<range.lowerBound]) + ".app")
+    /// The app a process belongs to: helpers inside Frameworks or Helpers count towards the outer app,
+    /// but an app shipped in an Applications folder inside another (Simulator inside Xcode) is its own.
+    static func enclosingApp(of path: String) -> URL? {
+        var app: String?
+        var searchStart = path.startIndex
+        while let range = path.range(of: ".app/", range: searchStart..<path.endIndex) {
+            let candidate = String(path[..<range.lowerBound]) + ".app"
+            if let outer = app {
+                if candidate.dropFirst(outer.count).contains("/Applications/") { app = candidate }
+            } else {
+                app = candidate
+            }
+            searchStart = range.upperBound
+        }
+        return app.map { URL(filePath: $0) }
     }
 
     private static func displayName(of bundle: URL) -> String {

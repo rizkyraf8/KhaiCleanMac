@@ -24,6 +24,7 @@ private final class FakeDocker: Sendable {
 
 @Suite struct DockerTests {
     private let binary = URL(filePath: "/usr/local/bin/docker")
+    private let home = URL(filePath: "/Users/me")
     private let localContext = "desktop-linux\tunix:///Users/me/.docker/run/docker.sock"
 
     private let df = """
@@ -78,28 +79,40 @@ private final class FakeDocker: Sendable {
     // MARK: Only this Mac
 
     @Test func onlyEnginesOnThisMacCount() {
-        #expect(DockerCleaner.isLocal("unix:///Users/me/.docker/run/docker.sock"))
-        #expect(DockerCleaner.isLocal("unix:///Users/me/.orbstack/run/docker.sock"))
-        #expect(DockerCleaner.isLocal("tcp://127.0.0.1:2375"))
-        #expect(DockerCleaner.isLocal("tcp://localhost:2376"))
-        #expect(!DockerCleaner.isLocal("ssh://deploy@prod.example.com"))
-        #expect(!DockerCleaner.isLocal("tcp://10.0.0.5:2376"))
-        #expect(!DockerCleaner.isLocal("tcp://localhost.example.com:2376"))
-        #expect(!DockerCleaner.isLocal(""))
+        for socket in [".docker/run/docker.sock", ".orbstack/run/docker.sock", ".rd/docker.sock",
+                       ".colima/default/docker.sock", ".lima/docker/sock/docker.sock"] {
+            #expect(DockerCleaner.isLocal("unix:///Users/me/\(socket)", home: home), "\(socket)")
+        }
+        #expect(DockerCleaner.isLocal("unix:///var/run/docker.sock", home: home))
+        #expect(!DockerCleaner.isLocal("ssh://deploy@prod.example.com", home: home))
+        #expect(!DockerCleaner.isLocal("tcp://10.0.0.5:2376", home: home))
+        #expect(!DockerCleaner.isLocal("tcp://localhost.example.com:2376", home: home))
+        #expect(!DockerCleaner.isLocal("", home: home))
+    }
+
+    /// `ssh -L ~/prod.sock:/var/run/docker.sock server` makes a local socket that is a server, and so
+    /// can a port on localhost: only the sockets the engines on this Mac make count.
+    @Test func tunnelsThatLookLocalAreRefused() {
+        #expect(!DockerCleaner.isLocal("unix:///Users/me/.docker/prod.sock", home: home))
+        #expect(!DockerCleaner.isLocal("unix:///tmp/docker.sock", home: home))
+        #expect(!DockerCleaner.isLocal("unix:///Users/me/.colima/../prod.sock", home: home))
+        #expect(!DockerCleaner.isLocal("unix:///Users/someone-else/.docker/run/docker.sock", home: home))
+        #expect(!DockerCleaner.isLocal("tcp://127.0.0.1:2375", home: home))
+        #expect(!DockerCleaner.isLocal("tcp://localhost:2376", home: home))
     }
 
     @Test func aRemoteContextIsRefusedBeforeAnythingElseRuns() {
         let fake = FakeDocker { arguments in
             arguments.first == "context" ? (0, "production\tssh://deploy@prod.example.com\n") : (0, df)
         }
-        #expect(DockerCleaner.state(binary: binary, runner: fake.runner)
+        #expect(DockerCleaner.state(binary: binary, home: home, runner: fake.runner)
                 == .notLocal(context: "production", host: "ssh://deploy@prod.example.com"))
         #expect(fake.recorded.count == 1, "Nothing is asked of a remote engine, not even its sizes")
     }
 
     @Test func anUnreadableContextIsRefusedToo() {
         let fake = FakeDocker { _ in (1, "unknown command") }
-        #expect(DockerCleaner.state(binary: binary, runner: fake.runner) == .notLocal(context: "", host: ""))
+        #expect(DockerCleaner.state(binary: binary, home: home, runner: fake.runner) == .notLocal(context: "", host: ""))
     }
 
     @Test func everyCommandNamesTheCheckedContext() {
@@ -109,7 +122,7 @@ private final class FakeDocker: Sendable {
             default: arguments.contains("df") ? (0, df) : (0, ps)
             }
         }
-        guard case .ready(let engine) = DockerCleaner.state(binary: binary, runner: fake.runner) else {
+        guard case .ready(let engine) = DockerCleaner.state(binary: binary, home: home, runner: fake.runner) else {
             Issue.record("Expected a local engine")
             return
         }
@@ -123,49 +136,85 @@ private final class FakeDocker: Sendable {
         let stopped = FakeDocker { arguments in
             arguments.first == "context" ? (0, "default\tunix:///var/run/docker.sock") : (1, "Cannot connect to the Docker daemon")
         }
-        #expect(DockerCleaner.state(binary: binary, runner: stopped.runner) == .notRunning)
+        #expect(DockerCleaner.state(binary: binary, home: home, runner: stopped.runner) == .notRunning)
         let stuck = FakeDocker { arguments in
             arguments.first == "context" ? (0, "default\tunix:///var/run/docker.sock") : (DockerCleaner.timedOutStatus, "")
         }
-        #expect(DockerCleaner.state(binary: binary, runner: stuck.runner) == .timedOut)
+        #expect(DockerCleaner.state(binary: binary, home: home, runner: stuck.runner) == .timedOut)
     }
 
     // MARK: Pruning
 
-    @Test func containersAreLeftAloneUnlessAskedFor() {
-        let commands = DockerCleaner.pruneCommands(.days30, context: "desktop-linux", includeContainers: false)
+    @Test func containersAreLeftAloneUnlessListed() {
+        let commands = DockerCleaner.pruneCommands(.days30, context: "desktop-linux", containers: [])
         #expect(commands.map { $0.dropFirst(2).prefix(2).joined(separator: " ") } == ["image prune", "builder prune"])
-        let withContainers = DockerCleaner.pruneCommands(.days30, context: "desktop-linux", includeContainers: true)
-        #expect(withContainers.first?.dropFirst(2).prefix(2).joined(separator: " ") == "container prune", "Containers go first")
-        #expect(withContainers.allSatisfy { $0.prefix(2) == ["--context", "desktop-linux"] && $0.contains("until=720h") })
+        #expect(!commands[0].contains("--all"), "Tagged images are only removed one by one, when they can be pulled again")
+        let db = DockerContainer(id: "aaa111", name: "postgres-dev", image: "postgres:16", created: nil)
+        let withContainers = DockerCleaner.pruneCommands(.days30, context: "desktop-linux", containers: [db])
+        #expect(withContainers.first == ["--context", "desktop-linux", "container", "rm", "aaa111"],
+                "Exactly the containers shown, by ID, without --force")
+        #expect(withContainers.allSatisfy { $0.prefix(2) == ["--context", "desktop-linux"] })
         #expect(!withContainers.flatMap { $0 }.contains("volume") && !withContainers.flatMap { $0 }.contains("--volumes"))
     }
 
-    @Test func addsUpWhatEachStepReclaimed() {
-        let fake = FakeDocker { arguments in
-            switch arguments[2] {
-            case "container": (0, "Deleted Containers:\nabc\n\nTotal reclaimed space: 12.5MB\n")
-            case "image": (0, "Deleted Images:\nsha256:1\n\nTotal reclaimed space: 1.2GB\n")
-            default: (0, "ID\t\tRECLAIMABLE\tSIZE\nxyz\ttrue\t500MB\nTotal:\t500MB\n")
+    private let images = """
+    {"CreatedAt":"2026-07-01 09:00:00 +0700 WIB","ID":"sha256:pulled","Repository":"postgres","Tag":"16"}
+    {"CreatedAt":"2026-07-01 09:00:00 +0700 WIB","ID":"sha256:built","Repository":"myapp","Tag":"dev"}
+    {"CreatedAt":"2026-10-28 09:00:00 +0700 WIB","ID":"sha256:fresh","Repository":"redis","Tag":"7"}
+    {"CreatedAt":"2026-07-01 09:00:00 +0700 WIB","ID":"sha256:dangling","Repository":"<none>","Tag":"<none>"}
+    """
+
+    /// A whole cleanup against a fake engine: `dfTotals` are the image sizes before and after.
+    private func fakeEngine(dfTotals: [String] = ["3GB", "1GB"], answer: @escaping @Sendable ([String]) -> (Int32, String)? = { _ in nil }) -> FakeDocker {
+        let dfCalls = Mutex(0)
+        let images = images
+        return FakeDocker { arguments in
+            if let custom = answer(arguments) { return custom }
+            if arguments.first == "context" { return (0, "desktop-linux\tunix:///Users/me/.docker/run/docker.sock") }
+            switch Array(arguments.dropFirst(2).prefix(2)) {
+            case ["system", "df"]:
+                let size = dfCalls.withLock { calls in defer { calls += 1 }; return dfTotals[min(calls, dfTotals.count - 1)] }
+                return (0, #"{"Type":"Images","TotalCount":"4","Size":"\#(size)","Reclaimable":"0B"}"#)
+            case ["image", "ls"]: return (0, images)
+            case ["image", "inspect"]: return (0, "sha256:pulled\t1\nsha256:built\t0\n")
+            default: return (0, "")
             }
         }
-        let result = DockerCleaner.prune(.days7, engine: engine(), includeContainers: true, binary: binary, runner: fake.runner)
-        #expect(result == DockerPruneResult(reclaimed: 12_500_000 + 1_200_000_000 + 500_000_000, failures: []))
     }
 
-    @Test func aFailedOrStuckStepIsReportedAndTheRestStillRuns() {
-        let fake = FakeDocker { arguments in
-            switch arguments[2] {
-            case "image": (1, "Error response from daemon: a prune operation is already running")
-            case "builder": (DockerCleaner.timedOutStatus, "")
-            default: (0, "Total reclaimed space: 1MB")
+    private var now: Date { ISO8601DateFormatter().date(from: "2026-10-30T00:00:00Z")! }
+
+    @Test func onlyOldImagesFromARegistryAreRemovedByName() {
+        let fake = fakeEngine()
+        let result = DockerCleaner.prune(.days30, engine: engine(), containers: [], binary: binary, now: now, home: home, runner: fake.runner)
+        let removals = fake.recorded.filter { $0.dropFirst(2).prefix(2) == ["image", "rm"] }
+        #expect(removals == [["--context", "desktop-linux", "image", "rm", "postgres:16"]],
+                "A local build can't be pulled again and a fresh image is too new")
+        #expect(result == DockerPruneResult(reclaimed: 2_000_000_000, failures: []), "Measured from the totals before and after")
+    }
+
+    @Test func nothingRunsWhenTheContextChangedSinceTheCheck() {
+        let fake = fakeEngine { arguments in
+            arguments.first == "context" ? (0, "desktop-linux\tunix:///Users/me/.docker/prod.sock") : nil
+        }
+        let result = DockerCleaner.prune(.days30, engine: engine(), containers: [], binary: binary, now: now, home: home, runner: fake.runner)
+        #expect(fake.recorded.count == 1, "Only the check itself ran")
+        #expect(fake.recorded.first?.prefix(3) == ["context", "inspect", "desktop-linux"])
+        #expect(result.failures.count == 1 && result.reclaimed == 0)
+    }
+
+    @Test func anImageInUseIsNotAFailure() {
+        let fake = fakeEngine { arguments in
+            switch Array(arguments.dropFirst(2).prefix(2)) {
+            case ["image", "rm"]: (1, "Error response from daemon: conflict: unable to remove repository reference \"postgres:16\" (must force) - container abc is using its referenced image")
+            case ["builder", "prune"]: (DockerCleaner.timedOutStatus, "")
+            case ["image", "prune"]: (1, "Error response from daemon: a prune operation is already running")
+            default: nil
             }
         }
-        let result = DockerCleaner.prune(.days30, engine: engine(), includeContainers: true, binary: binary, runner: fake.runner)
-        #expect(result.reclaimed == 1_000_000)
-        #expect(result.failures.count == 2)
+        let result = DockerCleaner.prune(.days30, engine: engine(), containers: [], binary: binary, now: now, home: home, runner: fake.runner)
+        #expect(result.failures.count == 2, "The prune error and the timeout, not the refused image")
         #expect(result.failures.first?.contains("already running") == true)
-        #expect(fake.recorded.count == 3)
     }
 
     @Test func containersOlderThanTheAgeAreThoseCreatedBeforeIt() {

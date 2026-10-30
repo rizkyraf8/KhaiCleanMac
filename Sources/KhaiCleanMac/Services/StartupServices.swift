@@ -1,4 +1,5 @@
 import AppKit
+import Synchronization
 
 /// Something that starts on its own: a login item, or a launchd agent or daemon.
 struct StartupItem: Identifiable, Hashable, Sendable {
@@ -109,7 +110,8 @@ enum StartupScanner {
         end tell
         return output
         """
-        guard let output = run("/usr/bin/osascript", ["-e", script]) else { return nil }
+        // The first run waits on macOS's permission prompt, so the user gets time to answer it.
+        guard let output = run("/usr/bin/osascript", ["-e", script], timeout: 600) else { return nil }
         return parseLoginItems(output)
     }
 
@@ -145,24 +147,40 @@ enum StartupScanner {
         label.split(separator: ".").last.map(String.init) ?? label
     }
 
-    /// Runs a tool and returns its output, or nil when it fails.
+    /// Runs a tool and returns its output, or nil when it fails or outlives `timeout` (it is then stopped,
+    /// so a stuck tool can't hold the app's work forever).
     @discardableResult
-    static func run(_ tool: String, _ arguments: [String]) -> String? {
+    static func run(_ tool: String, _ arguments: [String], timeout: TimeInterval = 120) -> String? {
         let process = Process()
         process.executableURL = URL(filePath: tool)
         process.arguments = arguments
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in finished.signal() }
         do {
             try process.run()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            return String(decoding: data, as: UTF8.self)
         } catch {
             return nil
         }
+        // Read while it runs, so a chatty tool can't block on a full pipe.
+        let collected = Mutex(Data())
+        let readDone = DispatchSemaphore(value: 0)
+        let handle = pipe.fileHandleForReading
+        DispatchQueue.global(qos: .userInitiated).async {
+            let data = handle.readDataToEndOfFile()
+            collected.withLock { $0 = data }
+            readDone.signal()
+        }
+        if finished.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            _ = finished.wait(timeout: .now() + 5)
+            return nil
+        }
+        _ = readDone.wait(timeout: .now() + 5)
+        guard process.terminationStatus == 0 else { return nil }
+        return collected.withLock { String(decoding: $0, as: UTF8.self) }
     }
 }
 

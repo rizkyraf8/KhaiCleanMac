@@ -50,11 +50,20 @@ IDENTITY="${KHAI_SIGN_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]] && security find-identity -p codesigning 2>/dev/null | grep -q '"KhaiCleanMac Local"'; then
     IDENTITY="KhaiCleanMac Local"
 fi
+# Hardened Runtime: without it, any program could start this app with DYLD_INSERT_LIBRARIES and
+# run its own code with the Full Disk Access granted to KhaiCleanMac.
+SIGN_OPTIONS=(--force --options runtime --entitlements "$ROOT/Resources/KhaiCleanMac.entitlements")
 if [[ -n "$IDENTITY" ]]; then
-    echo "→ Sign dengan \"$IDENTITY\""
-    codesign --force --sign "$IDENTITY" "$APP" >/dev/null
+    echo "→ Sign dengan \"$IDENTITY\" (Hardened Runtime)"
+    codesign "${SIGN_OPTIONS[@]}" --sign "$IDENTITY" "$APP" >/dev/null
 else
-    echo "→ Sign ad-hoc (izin Akses Disk Penuh perlu diberikan ulang setiap build)"
-    codesign --force --sign - "$APP" >/dev/null
+    echo "→ Sign ad-hoc dengan Hardened Runtime (izin Akses Disk Penuh perlu diberikan ulang setiap build)"
+    codesign "${SIGN_OPTIONS[@]}" --sign - "$APP" >/dev/null
+fi
+codesign --verify --strict "$APP"
+SIGNATURE="$(codesign -d --verbose=2 "$APP" 2>&1)"
+if [[ "$SIGNATURE" != *"runtime"* ]]; then
+    echo "✗ Hardened Runtime tidak aktif" >&2
+    exit 1
 fi
 echo "✓ Selesai: $APP"

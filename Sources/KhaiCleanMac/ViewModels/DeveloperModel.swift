@@ -37,6 +37,10 @@ final class DeveloperModel {
     }
 
     private var scanTask: Task<Void, Never>?
+    /// Bumped by every scan and cancel, so a scan that was replaced can't deliver its old result.
+    private var scanGeneration = 0
+    /// True while selected items are being removed, so the button can't start a second run on them.
+    private(set) var isCleaning = false
 
     var cutoff: Date { Date().addingTimeInterval(-Double(staleAge.rawValue) * 24 * 60 * 60) }
     var categories: [DevCategory] { DevCategory.allCases.filter { !items(in: $0).isEmpty } }
@@ -68,22 +72,26 @@ final class DeveloperModel {
         visitedCount = 0
         selected = []
         let days = staleAge.rawValue
+        scanGeneration += 1
+        let generation = scanGeneration
         scanTask = Task.detached(priority: .userInitiated) { [weak self] in
             let result = DeveloperScanner(staleDays: days).scan { visited in
                 Task { @MainActor in self?.visitedCount = visited }
             }
             guard !Task.isCancelled else { return }
-            await self?.finish(result)
+            await self?.finish(result, generation: generation)
         }
     }
 
     func cancel() {
         scanTask?.cancel()
         scanTask = nil
+        scanGeneration += 1
         withAnimation(.smooth) { phase = .idle }
     }
 
-    private func finish(_ result: DevScanResult) {
+    private func finish(_ result: DevScanResult, generation: Int) {
+        guard generation == scanGeneration else { return }
         self.result = result
         refreshLocks()
         applyDefaultSelection()
@@ -112,10 +120,9 @@ final class DeveloperModel {
         guard case .ready(let engine) = docker, let binary = DockerCleaner.binary() else { return }
         isCleaningDocker = true
         let age = dockerAge
-        let includeContainers = includeStoppedContainers
         let containers = dockerContainersToRemove
         let result = await Task.detached(priority: .userInitiated) {
-            DockerCleaner.prune(age, engine: engine, includeContainers: includeContainers, binary: binary)
+            DockerCleaner.prune(age, engine: engine, containers: containers, binary: binary)
         }.value
         isCleaningDocker = false
         CleanHistory.shared.record(Self.dockerHistory(result, engine: engine, age: age, containers: containers), source: "Docker")
@@ -204,6 +211,9 @@ final class DeveloperModel {
     var selectionHasSimulators: Bool { items(in: .simulators).contains { selected.contains($0.url) } }
 
     func moveSelectedToTrash() async {
+        guard !isCleaning else { return }
+        isCleaning = true
+        defer { isCleaning = false }
         // An IDE or the Simulator may have been opened since the scan.
         refreshLocks()
         let cutoff = cutoff
