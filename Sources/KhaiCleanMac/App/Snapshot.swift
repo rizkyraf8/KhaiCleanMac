@@ -40,8 +40,8 @@ enum Snapshot {
                 await render(ContentView(selection: module), name: module.rawValue, scheme: scheme, folder: folder,
                              settle: module == .uninstaller || module == .spaceLens ? 8 : (module == .memory || module == .home || module == .startup ? 3 : 1.5))
             }
-            await render(MenuBarView(monitor: SystemMonitor()).background(.background), name: "menubar", scheme: scheme, folder: folder,
-                         settle: 4.5, size: NSSize(width: 320, height: 330))
+            await render(MenuBarView(monitor: SystemMonitor(), scan: SmartScanModel()).background(.background), name: "menubar", scheme: scheme, folder: folder,
+                         settle: 4.5, size: NSSize(width: 320, height: 470))
             if args.contains("--updates") {
                 // Real request to rizkyraf.id, then a pretend 0.5.0 to show the "available" screens.
                 await UpdateChecker.shared.check()
@@ -76,11 +76,15 @@ enum Snapshot {
                 let scanning = SmartScanModel()
                 Task { await scanning.scan() }
                 await render(ContentView(selection: .smartScan, smartScan: scanning), name: "smartScan-scanning", scheme: scheme, folder: folder, settle: 2)
+                await render(MenuBarView(monitor: SystemMonitor(), scan: scanning).background(.background), name: "menubar-scanning", scheme: scheme, folder: folder,
+                             settle: 1, size: NSSize(width: 320, height: 490))
                 await render(ContentView(selection: .spaceLens), name: "spaceLens-measuring", scheme: scheme, folder: folder, settle: 2.5)
                 // Read-only: scans and leftover lookups never touch files.
                 let smartScan = SmartScanModel()
                 await smartScan.scan()
                 await render(ContentView(selection: .smartScan, smartScan: smartScan), name: "smartScan-results", scheme: scheme, folder: folder, settle: 1.5)
+                await render(MenuBarView(monitor: SystemMonitor(), scan: smartScan).background(.background), name: "menubar-results", scheme: scheme, folder: folder,
+                             settle: 1, size: NSSize(width: 320, height: 470))
 
                 let uninstaller = UninstallerModel()
                 await uninstaller.load()

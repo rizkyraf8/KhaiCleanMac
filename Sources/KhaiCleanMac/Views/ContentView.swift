@@ -17,7 +17,7 @@ struct ContentView: View {
 
     init(
         selection: Module = .home,
-        smartScan: SmartScanModel = SmartScanModel(),
+        smartScan: SmartScanModel = .shared,
         duplicates: DuplicatesModel = DuplicatesModel(),
         developer: DeveloperModel = DeveloperModel(),
         uninstaller: UninstallerModel = UninstallerModel(),
@@ -45,7 +45,7 @@ struct ContentView: View {
                 case .home:
                     HomeView(smartScan: smartScan, onOpen: open) {
                         open(.smartScan)
-                        Task { await smartScan.scan() }
+                        smartScan.start()
                     }
                 case .smartScan: SmartScanView(model: smartScan)
                 case .largeFiles: LargeFilesView(model: largeFiles)
@@ -87,7 +87,18 @@ struct ContentView: View {
             router.didOfferAccessGuide = true
         }
         // With "keep in menu bar" on, closing the window hides the Dock icon until it is reopened.
-        .onAppear { NSApp.setActivationPolicy(.regular) }
+        .onAppear {
+            NSApp.setActivationPolicy(.regular)
+            // A scan that kept going while the window was closed is what the user comes back for.
+            let resumed: Module? = smartScan.phase == .scanning || smartScan.hasUnseenResults ? .smartScan : nil
+            if let module = router.requestedModule ?? resumed { selection = module }
+            router.requestedModule = nil
+        }
+        .onChange(of: router.requestedModule) { _, module in
+            guard let module else { return }
+            open(module)
+            router.requestedModule = nil
+        }
         .onDisappear {
             if AppSettings.shared.keepInMenuBar { NSApp.setActivationPolicy(.accessory) }
         }

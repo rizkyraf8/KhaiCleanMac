@@ -37,9 +37,9 @@ struct KhaiCleanMacApp: App {
         }
 
         MenuBarExtra {
-            LocalizedRoot { MenuBarView(monitor: monitor) }
+            LocalizedRoot { MenuBarView(monitor: monitor, scan: .shared) }
         } label: {
-            MenuBarLabel(monitor: monitor)
+            MenuBarLabel(monitor: monitor, scan: .shared)
         }
         .menuBarExtraStyle(.window)
     }
@@ -67,7 +67,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        !AppSettings.shared.keepInMenuBar
+        guard !AppSettings.shared.keepInMenuBar else { return false }
+        // Quitting here would quietly throw a running scan away, so ask first.
+        guard SmartScanModel.shared.phase == .scanning else { return true }
+        let alert = NSAlert()
+        alert.messageText = L("Smart Scan masih berjalan", "Smart Scan is still running")
+        alert.informativeText = L("Menutup jendela akan menutup KhaiCleanMac dan menghentikan pemindaian. Biarkan berjalan, lalu klik ikon Dock untuk melihat hasilnya. Aktifkan \"Tetap di menu bar\" di Pengaturan agar pemindaian bisa berlanjut di menu bar.",
+                                  "Closing the window quits KhaiCleanMac and stops the scan. Keep it running and click the Dock icon to see the results. Turn on \"Keep running in the menu bar\" in Settings to let scans carry on from the menu bar.")
+        alert.addButton(withTitle: L("Lanjutkan Pemindaian", "Keep Scanning"))
+        alert.addButton(withTitle: L("Hentikan dan Keluar", "Stop and Quit"))
+        return alert.runModal() == .alertSecondButtonReturn
     }
 
     /// Clicking the Dock icon (or opening the app again) while only the menu bar is left brings the window back.

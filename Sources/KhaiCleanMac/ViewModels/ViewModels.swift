@@ -5,6 +5,10 @@ import SwiftUI
 final class SmartScanModel {
     enum Phase { case idle, scanning, results, cleaning, done }
 
+    /// The scan belongs to the app, not to the window: closing the window leaves it running, and the
+    /// menu bar shows and starts the same one.
+    static let shared = SmartScanModel()
+
     private(set) var phase: Phase = .idle
     private(set) var categories: [JunkCategory] = []
     private(set) var currentKind: JunkKind?
@@ -21,6 +25,18 @@ final class SmartScanModel {
     private(set) var isChromeRunning = false
     private(set) var hasFullDiskAccess = true
     var selected: Set<URL> = []
+    /// Results that came in while the Smart Scan screen wasn't showing; the menu bar marks them until opened.
+    private(set) var hasUnseenResults = false
+    /// Set by the Smart Scan screen while it shows, so results that finish in front of the user aren't flagged.
+    var isOnScreen = false {
+        didSet { if isOnScreen { hasUnseenResults = false } }
+    }
+
+    private var scanTask: Task<Void, Never>?
+
+    var isBusy: Bool { phase == .scanning || phase == .cleaning }
+    /// Finished categories out of all of them, the same steps the scanning screen counts.
+    var progress: Double { Double(categories.count) / Double(JunkKind.allCases.count) }
 
     var totalSize: Int64 { categories.reduce(0) { $0 + $1.totalSize } }
     /// Selected items that are already in the Trash; cleaning deletes them for good.
@@ -28,13 +44,33 @@ final class SmartScanModel {
     var itemCount: Int { categories.reduce(0) { $0 + $1.items.count } }
     var selectedSize: Int64 { categories.reduce(0) { $0 + selectedSize(in: $1) } }
 
+    /// Starts a scan unless one (or a clean) is already running. The window and the menu bar both
+    /// come through here, so there is only ever one scan.
+    func start() {
+        guard !isBusy else { return }
+        phase = .scanning
+        scanTask = Task { await scan() }
+    }
+
+    /// Stops a running scan and drops what it found so far.
+    func cancel() {
+        guard phase == .scanning else { return }
+        scanTask?.cancel()
+        scanTask = nil
+        currentKind = nil
+        reset()
+    }
+
     func scan() async {
+        // Stopped before the task got to run.
+        guard !Task.isCancelled else { return }
         phase = .scanning
         categories = []
         selected = []
         inUseOwners = [:]
         inUseApps = []
         hasSystemOwners = false
+        hasUnseenResults = false
         report = nil
         let matcher = RunningAppMatcher.current()
         let scanner = JunkScanner(chromeMaxAgeDays: AppSettings.shared.chromeCacheAge.rawValue,
@@ -46,8 +82,12 @@ final class SmartScanModel {
         for kind in JunkKind.allCases {
             currentKind = kind
             let items = await Task.detached(priority: .userInitiated) { scanner.scan(kind) }.value
+            // Cancelled while that kind was being read: a new scan may already own the state.
+            guard !Task.isCancelled else { return }
             if kind == .browsers {
-                chromeUpdate = await Task.detached(priority: .userInitiated) { BrowserCacheScanner(maxAgeDays: 30).chromeUpdateInfo() }.value
+                let update = await Task.detached(priority: .userInitiated) { BrowserCacheScanner(maxAgeDays: 30).chromeUpdateInfo() }.value
+                guard !Task.isCancelled else { return }
+                chromeUpdate = update
             }
             for item in items {
                 guard let owner = matcher.owner(of: item, kind: kind) else { continue }
@@ -59,6 +99,8 @@ final class SmartScanModel {
             if kind.selectedByDefault { selected.formUnion(items.filter { inUseOwners[$0.url] == nil }.map(\.url)) }
         }
         currentKind = nil
+        scanTask = nil
+        hasUnseenResults = !isOnScreen
         withAnimation(.smooth) { phase = .results }
     }
 
@@ -95,6 +137,7 @@ final class SmartScanModel {
     }
 
     func reset() {
+        hasUnseenResults = false
         withAnimation(.smooth) {
             phase = .idle
             categories = []
