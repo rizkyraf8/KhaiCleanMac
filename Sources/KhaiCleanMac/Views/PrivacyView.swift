@@ -55,8 +55,8 @@ struct PrivacyView: View {
         }
         .toast($model.toast)
         .task { if !model.hasLoaded { await model.load() } }
-        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in model.refreshRunning() }
-        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in model.refreshRunning() }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in model.refreshRunning() }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in model.refreshRunning() }
         .alert(L("Hapus data browser yang dipilih?", "Clear the selected browser data?"), isPresented: $confirmClean) {
             Button(L("Hapus", "Clear"), role: .destructive) { Task { await model.clean() } }
             Button(L("Batal", "Cancel"), role: .cancel) {}

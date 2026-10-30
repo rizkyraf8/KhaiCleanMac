@@ -370,13 +370,22 @@ struct RemovedItem: Codable, Identifiable, Hashable, Sendable {
     /// relative paths inside the trashed folder.
     let memberPaths: [String]
     var restoredAt: Date?
+    /// The trashed item's file number. The Trash reuses names once it is emptied, so restore checks
+    /// this to never move back an unrelated file that took the same name. Nil in older history.
+    var trashedFileNumber: UInt64?
 
-    init(_ item: CleanItem, trashedTo: URL?, memberPaths: [String]) {
+    /// `size` is what actually went, when that is less than the item's scanned size.
+    init(_ item: CleanItem, trashedTo: URL?, memberPaths: [String], size: Int64? = nil) {
         name = item.name
         originalPath = item.url.path
-        size = item.size
+        self.size = size ?? item.size
         trashedPath = trashedTo?.path
         self.memberPaths = memberPaths
+        trashedFileNumber = trashedTo.flatMap(Self.fileNumber)
+    }
+
+    static func fileNumber(_ url: URL) -> UInt64? {
+        ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.systemFileNumber] as? NSNumber)?.uint64Value
     }
 
     var canRestore: Bool { trashedPath != nil && restoredAt == nil }
