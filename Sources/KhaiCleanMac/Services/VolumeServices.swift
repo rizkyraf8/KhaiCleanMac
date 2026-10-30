@@ -16,7 +16,7 @@ struct ScanLocation: Identifiable, Hashable, Sendable {
     /// Folders at the top of a disk that belong to macOS (a bootable copy, Spotlight, the Trash):
     /// scans step over them and nothing inside them is offered for removal.
     static let volumeSystemFolders: Set<String> = [
-        "System", "Library", "private", "usr", "bin", "sbin", "cores", "opt", "Backups.backupdb",
+        "System", "Library", "private", "usr", "bin", "sbin", "cores", "opt", "Backups.backupdb", ".timemachine",
         ".Spotlight-V100", ".fseventsd", ".Trashes", ".DocumentRevisions-V100", ".TemporaryItems",
         ".MobileBackups", ".PKInstallSandboxManager", ".PKInstallSandboxManager-SystemSoftware",
     ]
@@ -28,7 +28,22 @@ struct ScanLocation: Identifiable, Hashable, Sendable {
         if root.standardizedFileURL.path == URL.homeDirectory.standardizedFileURL.path {
             return folder.lastPathComponent == "Library"
         }
-        return volumeSystemFolders.contains(folder.lastPathComponent)
+        if volumeSystemFolders.contains(folder.lastPathComponent) { return true }
+        // A bootable copy of macOS: its apps and users belong to that system.
+        return ["Applications", "Users"].contains(folder.lastPathComponent) && isBootable(root)
+    }
+
+    /// A disk with its own copy of macOS on it, such as a bootable clone.
+    static func isBootable(_ volume: URL) -> Bool {
+        FileManager.default.fileExists(atPath: volume.appending(path: "System/Library/CoreServices/SystemVersion.plist").path)
+    }
+
+    /// Time Machine backups: HFS+ disks keep them in Backups.backupdb, APFS disks as dated
+    /// "2026-10-29-101500.backup" folders at the top.
+    static func isTimeMachineBackup(_ volume: URL) -> Bool {
+        if FileManager.default.fileExists(atPath: volume.appending(path: "Backups.backupdb").path) { return true }
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: volume.path)) ?? []
+        return names.contains { $0 == ".timemachine" || $0.wholeMatch(of: /\d{4}-\d{2}-\d{2}-\d{6}\.(backup|inprogress)/) != nil }
     }
 }
 
@@ -55,7 +70,7 @@ enum VolumeFinder {
               values.volumeIsReadOnly != true,
               values.volumeIsLocal != false,
               values.volumeIsBrowsable != false,
-              !FileManager.default.fileExists(atPath: url.appending(path: "Backups.backupdb").path) else { return nil }
+              !ScanLocation.isTimeMachineBackup(url) else { return nil }
         let removable = values.volumeIsRemovable == true || values.volumeIsEjectable == true || values.volumeIsInternal == false
         return ScanLocation(url: url, name: values.volumeLocalizedName ?? values.volumeName ?? url.lastPathComponent,
                             isVolume: true, isRemovable: removable)

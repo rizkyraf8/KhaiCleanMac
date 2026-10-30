@@ -605,5 +605,7 @@ extension Translations {
         ", and %1$@ more": " e mais %1$@",
         "Unused images and build cache created over %1$@ ago are deleted for good by Docker, not moved to the Trash. Images can be pulled again when needed. Volumes aren't touched.": "Imagens sem uso e cache de build criados há mais de %1$@ são apagados de vez pelo Docker, sem passar pelo Lixo. As imagens podem ser baixadas de novo quando necessário. Os volumes não são tocados.",
         "\n\nAlso %1$@ stopped containers, with the files inside them: %2$@.": "\n\nTambém %1$@ contêineres parados, com os arquivos dentro deles: %2$@.",
+        "the engine changed since it was checked, nothing was removed": "o mecanismo mudou desde a verificação, nada foi removido",
+        " Images made on this Mac (local builds, docker commit or load) aren't in a registry, so they're kept.": " Imagens criadas neste Mac (builds locais, docker commit ou load) não estão em um registro, então são mantidas.",
     ]
 }

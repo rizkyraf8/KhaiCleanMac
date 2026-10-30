@@ -31,7 +31,7 @@ final class PrivacyModel {
         let found = await Task.detached(priority: .userInitiated) { PrivacyScanner().scan() }.value
         withAnimation(.smooth) {
             browsers = found
-            selected = selected.filter { id in found.contains { $0.items.contains { $0.id == id } } }
+            selected = selected.filter { id in found.contains { $0.items.contains { $0.id == id && !isLocked($0) } } }
             isLoading = false
             hasLoaded = true
         }
@@ -40,6 +40,10 @@ final class PrivacyModel {
     func refreshRunning() {
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         runningBrowsers = Set(Browser.all.filter { !running.isDisjoint(with: $0.bundleIDs) }.map(\.name))
+        // A locked item leaves the selection for good: once its browser quits it must not come back
+        // ticked, or it would be cleared without being in the confirmation the user read.
+        let locked = Set(browsers.flatMap(\.items).filter(isLocked).map(\.id))
+        selected.subtract(locked)
     }
 
     func isLocked(_ item: PrivacyItem) -> Bool {

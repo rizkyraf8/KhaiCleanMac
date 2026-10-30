@@ -297,15 +297,19 @@ final class UninstallerModel {
     func uninstall(_ app: InstalledApp) async {
         isUninstalling = true
         let appItem = CleanItem(url: app.url, size: sizes[app.url] ?? 0)
-        let items = [appItem] + leftovers.filter { selectedLeftovers.contains($0.url) }
-        let report = await Trasher.removeRecorded(items, source: Module.uninstaller.title)
-        isUninstalling = false
-
-        if report.unremoved.contains(where: { $0.url == app.url }) {
+        // The app goes first, on its own: if it can't be removed, its data stays, or the app would be
+        // left installed without its settings and documents.
+        let appReport = await Trasher.removeRecorded([appItem], source: Module.uninstaller.title)
+        guard appReport.isComplete else {
+            isUninstalling = false
             toast = ToastMessage(text: L("\(app.name) tidak bisa dipindahkan. Coba hapus manual dari Finder (butuh izin admin).", "\(app.name) couldn't be moved. Try removing it in Finder (needs an admin password)."), symbol: "exclamationmark.triangle.fill", colors: Palette.berry)
-            leftovers.removeAll { item in selectedLeftovers.contains(item.url) && !report.unremoved.contains(item) }
             return
         }
+        let chosen = leftovers.filter { selectedLeftovers.contains($0.url) }
+        var report = chosen.isEmpty ? CleanReport(permanent: appReport.permanent)
+            : await Trasher.removeRecorded(chosen, source: Module.uninstaller.title)
+        report.movedSize += appReport.movedSize
+        isUninstalling = false
         withAnimation(.snappy) {
             apps.removeAll { $0.id == app.id }
             selectedID = nil

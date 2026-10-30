@@ -21,6 +21,8 @@ enum Restorer {
         guard fm.fileExists(atPath: trashed.path) else {
             return canReadTrash(home: home) ? .notInTrash : .noAccess
         }
+        // Something else now has that name in the Trash: ours was emptied or put back by hand.
+        if let number = item.trashedFileNumber, RemovedItem.fileNumber(trashed) != number { return .notInTrash }
 
         if item.memberPaths.isEmpty {
             guard !fm.fileExists(atPath: original.path) else { return .conflict }

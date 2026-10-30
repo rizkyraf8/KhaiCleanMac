@@ -41,30 +41,38 @@ enum SafetyGuard {
 
         // Check the path as given and with symlinks in its parent folders resolved, so a symlink can't
         // smuggle a protected folder in under an innocent name.
+        // Paths are compared ignoring letter case and Unicode composition, as the disk does:
+        // "~/documents" or "/LIBRARY/x" open the same folders as "~/Documents" and "/Library/x".
         let resolvedParent = url.deletingLastPathComponent().resolvingSymlinksInPath()
         let candidates = Set([
-            normalized(url.path),
-            normalized(resolvedParent.appending(path: url.lastPathComponent).path),
+            key(url.path),
+            key(resolvedParent.appending(path: url.lastPathComponent).path),
         ])
         let resolvedHome = home.resolvingSymlinksInPath()
-        let folders = Set((protectedFolders(home: home) + protectedFolders(home: resolvedHome)).map(normalized))
-        let trees = (protectedTrees(home: home) + protectedTrees(home: resolvedHome)).map(normalized)
+        let folders = Set((protectedFolders(home: home) + protectedFolders(home: resolvedHome)).map(key))
+        let trees = (protectedTrees(home: home) + protectedTrees(home: resolvedHome)).map(key)
         // The per-user temporary folder lives under /private, but what's inside it is always disposable.
         // Each form of the path is judged on its own, so a symlink out of it is still caught.
         // `resolvingSymlinksInPath` strips "/private", while directory listings keep it, so accept both spellings.
-        let temporaryDirectory = normalized(FileManager.default.temporaryDirectory.resolvingSymlinksInPath().path)
+        let temporaryDirectory = key(FileManager.default.temporaryDirectory.resolvingSymlinksInPath().path)
         let temporaryRoots: Set<String> = temporaryDirectory.hasPrefix("/private/")
             ? [temporaryDirectory, String(temporaryDirectory.dropFirst("/private".count))]
             : [temporaryDirectory, "/private" + temporaryDirectory]
+        let volumeSystemFolders = Set(ScanLocation.volumeSystemFolders.map(key))
 
         for path in candidates {
             if folders.contains(path) { return "protected folder \(path)" }
             // A disk's own root, such as /Volumes/Backup.
             let components = path.split(separator: "/")
-            if components.count == 2, components[0] == "Volumes" { return "volume root \(path)" }
+            if components.count == 2, components[0] == "volumes" { return "volume root \(path)" }
             // A disk's Spotlight index, Trash, versions store or bootable system, and anything in them.
-            if components.count >= 3, components[0] == "Volumes", ScanLocation.volumeSystemFolders.contains(String(components[2])) {
+            if components.count >= 3, components[0] == "volumes", volumeSystemFolders.contains(String(components[2])) {
                 return "disk system folder \(path)"
+            }
+            // On a bootable copy of macOS, its apps and user folders belong to that system too.
+            if components.count >= 3, components[0] == "volumes", ["applications", "users"].contains(components[2]),
+               ScanLocation.isBootable(URL(filePath: "/Volumes").appending(path: String(components[1]))) {
+                return "bootable disk folder \(path)"
             }
             // Only the subtree rule is waived inside the temporary folder (it sits under /private).
             if temporaryRoots.contains(where: { path.hasPrefix($0 + "/") }) { continue }
@@ -79,7 +87,9 @@ enum SafetyGuard {
         refusal(for: url, home: home) == nil
     }
 
-    private static func normalized(_ path: String) -> String {
-        path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+    /// The form paths are compared in: no trailing slash, precomposed, lowercased.
+    private static func key(_ path: String) -> String {
+        let trimmed = path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+        return trimmed.precomposedStringWithCanonicalMapping.lowercased()
     }
 }
