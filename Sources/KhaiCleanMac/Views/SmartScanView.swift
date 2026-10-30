@@ -11,9 +11,16 @@ struct SmartScanView: View {
             ModuleHeader(module: module) {
                 if model.phase == .results {
                     Button {
-                        Task { await model.scan() }
+                        model.start()
                     } label: {
                         Label(L("Pindai Ulang", "Scan Again"), systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(SoftButtonStyle())
+                } else if model.phase == .scanning {
+                    Button {
+                        model.cancel()
+                    } label: {
+                        Label(L("Hentikan", "Stop"), systemImage: "stop.fill")
                     }
                     .buttonStyle(SoftButtonStyle())
                 }
@@ -27,6 +34,8 @@ struct SmartScanView: View {
             case .done: doneView
             }
         }
+        .onAppear { model.isOnScreen = true }
+        .onDisappear { model.isOnScreen = false }
         .sheet(item: $detailKind) { kind in
             if let category = model.category(kind) {
                 CategoryDetailSheet(model: model, category: category)
@@ -60,7 +69,7 @@ struct SmartScanView: View {
         VStack(spacing: 28) {
             Spacer()
             ScanOrb(colors: module.colors, isActive: false, label: L("Pindai", "Scan")) {
-                Task { await model.scan() }
+                model.start()
             }
             VStack(spacing: 8) {
                 Text(L("Siap merapikan Mac kamu?", "Ready to tidy up your Mac?"))
