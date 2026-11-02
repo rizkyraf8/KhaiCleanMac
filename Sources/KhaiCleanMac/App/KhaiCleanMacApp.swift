@@ -1,8 +1,12 @@
 import SwiftUI
 
 enum AppInfo {
-    static let bundleID = "id.rizkyraf.KhaiCleanMac"
-    static let name = "KhaiCleanMac"
+    static let productionBundleID = "id.rizkyraf.KhaiCleanMac"
+    /// Set in Info.plist by scripts/build-dev-app.sh. A dev build has its own ID and name, so its
+    /// settings, history, Keychain item and Full Disk Access grant never mix with the installed app's.
+    static let isDevBuild = Bundle.main.object(forInfoDictionaryKey: "KhaiDevBuild") as? Bool ?? false
+    static let bundleID = isDevBuild ? productionBundleID + ".dev" : productionBundleID
+    static let name = isDevBuild ? "KhaiCleanMac Dev" : "KhaiCleanMac"
     static let repository = URL(string: "https://github.com/rizkyraf8/KhaiCleanMac")!
 
     /// Comes from Info.plist. A bare `swift run` binary has no Info.plist, so it shows "dev".
@@ -18,7 +22,7 @@ enum AppInfo {
     }
 }
 
-@main
+/// Started by `Entry` unless a command-line command was given.
 struct KhaiCleanMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var monitor = SystemMonitor()

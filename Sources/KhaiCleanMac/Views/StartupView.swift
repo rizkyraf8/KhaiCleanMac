@@ -27,7 +27,7 @@ struct StartupView: View {
             HStack(spacing: 12) {
                 StatTile(title: L("Agent pengguna aktif", "Active user agents"), value: "\(model.activeUserAgentCount)", colors: Palette.sunny)
                 StatTile(title: L("Agent & daemon sistem", "System agents & daemons"), value: "\(model.systemItems.count)", colors: Palette.ocean)
-                StatTile(title: L("Yatim (app sudah tidak ada)", "Orphaned (app is gone)"), value: "\(model.orphanCount)", colors: Palette.berry)
+                StatTile(title: L("Tanpa app (sudah dihapus)", "Orphaned (app is gone)"), value: "\(model.orphanCount)", colors: Palette.berry)
             }
 
             ScrollView {
@@ -225,7 +225,7 @@ private struct StartupRow: View {
 
     private var badges: [(text: String, color: Color)] {
         var result: [(String, Color)] = []
-        if item.isOrphan { result.append((L("Yatim", "Orphaned"), Palette.berry[1])) }
+        if item.isOrphan { result.append((L("Tanpa app", "Orphaned"), Palette.berry[1])) }
         if item.isDisabled { result.append((L("Mati", "Off"), Palette.slate[1])) }
         if item.kind == .systemDaemon { result.append(("Daemon", Palette.ocean[1])) }
         if item.keepsAlive && !item.isDisabled { result.append((L("Selalu jalan", "Always on"), Palette.sunny[1])) }

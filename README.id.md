@@ -37,21 +37,27 @@ Unduh versi terbaru KhaiCleanMac di **[rizkyraf.id/projects/khaicleanmac](https:
 | Modul | Fungsi |
 |---|---|
 | **Beranda** | Titik awal: kondisi disk dan memori, kesehatan baterai dan SSD, Smart Scan sekali klik, status Akses Disk Penuh, dan kartu untuk setiap fitur |
-| **Smart Scan** | Mencari cache aplikasi (`~/Library/Caches`), log (`~/Library/Logs`), sampah Xcode (DerivedData, Device Support, cache simulator), installer `.dmg`/`.pkg` lama, Downloads lama, salinan lampiran Mail, backup iPhone/iPad dan file `.ipsw`, serta isi Trash. Cache browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) dibersihkan per entri: hanya cache web lama dan Code Cache usang yang dibuang |
-| **File Besar** | Mencari file di atas 50 MB, 100 MB, 500 MB, atau 1 GB di folder pribadi atau di disk lain, dengan filter jenis file dan urutan |
+| **Smart Scan** | Mencari cache aplikasi (`~/Library/Caches`), log (`~/Library/Logs`), sampah Xcode (DerivedData, Device Support, cache simulator), installer `.dmg`/`.pkg` lama, Downloads lama, salinan lampiran Mail, backup iPhone/iPad dan file `.ipsw`, serta isi Trash. Cache browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari) dibersihkan per entri: hanya cache web lama dan Code Cache usang yang dibuang Laporan crash punya kategori sendiri, log dan laporan crash bisa dibatasi umurnya, dan file lama di Desktop serta Documents ikut ditampilkan (tidak pernah dipilih otomatis; item iCloud dan repo Git dilewati). |
+| **File Besar** | Mencari file di atas 50 MB, 100 MB, 500 MB, atau 1 GB di folder pribadi atau di disk lain, dengan filter jenis file dan urutan Disk jaringan (SMB, NAS) juga bisa dipindai. |
 | **Duplikat** | Mencari file yang isinya identik, di folder pribadi atau di disk lain, dan secara default menyimpan salinan yang paling lama |
-| **Developer** | Mencari dependensi proyek lama (`node_modules`, `Pods`, `.build`, `target`) arsip Xcode, serta runtime dan perangkat simulator Xcode (sering puluhan GB; dihapus lewat `simctl` milik Xcode sendiri). Cache package manager (Gradle, npm, Yarn, Cargo, Maven, dll.) dibersihkan per entri: hanya library yang tidak dipakai 30, 60, atau 90 hari yang dihapus, jadi proyek aktif tetap cepat di-build. **Docker** dibersihkan oleh Docker sendiri: image tak terpakai dan build cache yang dibuat lebih dari 7, 30, atau 60 hari lalu, plus container yang sudah berhenti hanya kalau kamu centang. Hanya Docker di Mac ini yang dibersihkan, tidak pernah Docker di server lain yang dituju sebuah context. Volume dan container yang berjalan tidak pernah disentuh. Bisa dipakai dengan Docker Desktop, OrbStack, Colima, dan Rancher Desktop. Juga menampilkan perintah Terminal untuk Homebrew dan Go |
+| **Foto Mirip** | Mencari foto yang terlihat hampir sama (jepretan beruntun, salinan yang di-resize atau dikompres ulang) di Pictures, Desktop, Downloads, dan Documents dengan hash perseptual. Tidak ada yang dipilih otomatis; "Pilih semua kecuali yang terbaik" menyisakan resolusi tertinggi di tiap grup |
+| **Developer** | Mencari dependensi proyek lama (`node_modules`, `Pods`, `.build`, `target`) arsip Xcode, serta runtime dan perangkat simulator Xcode (sering puluhan GB; dihapus lewat `simctl` milik Xcode sendiri). Cache package manager (Gradle, npm, Yarn, Cargo, Maven, dll.) dibersihkan per entri: hanya library yang tidak dipakai 30, 60, atau 90 hari yang dihapus, jadi proyek aktif tetap cepat di-build. **Docker** dibersihkan oleh Docker sendiri: image tak terpakai dan build cache yang dibuat lebih dari 7, 30, atau 60 hari lalu, plus container yang sudah berhenti hanya kalau kamu centang. Hanya Docker di Mac ini yang dibersihkan, tidak pernah Docker di server lain yang dituju sebuah context. Volume dan container yang berjalan tidak pernah disentuh. Bisa dipakai dengan Docker Desktop, OrbStack, Colima, dan Rancher Desktop. Juga menampilkan perintah Terminal untuk Homebrew dan Go Juga mencari virtual environment Python (venv proyek, Poetry, Pipenv, Conda…), system image dan emulator Android, cache RubyGems dan Composer serta folder `vendor` Composer, dan punya kartu **Homebrew** yang menampilkan apa yang akan dihapus `brew cleanup` dan paket mana yang perlu update. |
+| **iCloud Drive** | Menampilkan file iCloud Drive besar yang sudah diunduh dan tersinkron penuh, lalu melepas salinan lokalnya. Tidak ada yang dihapus: file tetap di iCloud dan diunduh lagi saat dibuka |
 | **Privasi** | Menghapus riwayat, cookie, dan isian formulir per browser (Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari), hanya yang kamu centang dan hanya saat browser itu tertutup. Password, bookmark, alamat, dan kartu tidak pernah disentuh |
 | **Space Lens** | Menampilkan peta treemap isi folder atau disk (default: Home). Klik dua kali untuk masuk ke folder, dan pakai breadcrumb untuk kembali |
-| **Uninstaller** | Menghapus aplikasi dari `/Applications` dan `~/Applications` beserta file sisanya (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents, dll.) |
+| **Data Sistem** | Mengukur isi "System Data" (cache, log, Xcode, backup, salinan iCloud, container, Mail, Messages, swap…) dan menautkan tiap bagian ke modul yang membersihkannya. Snapshot lokal Time Machine bisa dihapus lewat prompt administrator macOS |
+| **Uninstaller** | Menghapus aplikasi dari `/Applications` dan `~/Applications` beserta file sisanya (Application Support, Caches, Preferences, Containers, Group Containers, LaunchAgents, dll.) Tab **Sisa app terhapus** mencari isi ~/Library yang dinamai ID app yang sudah tidak ada di Mac ini, dan **Bahasa** melaporkan terjemahan di dalam app yang tidak dipakai Mac-mu (hanya laporan: menghapusnya merusak tanda tangan app). |
 | **Pembaruan App** | Mencari app yang punya versi lebih baru dengan membaca feed pembaruan Sparkle milik app itu sendiri, lalu membuka app-nya supaya app memasang pembaruannya sendiri. App dari App Store ditampilkan dengan pintasan ke halaman pembaruan App Store |
 | **Ekstensi** | Menyalakan atau mematikan ekstensi aplikasi pihak ketiga (Safari, Finder Sync, menu Bagikan, Quick Look, widget, dll.), dan menghapus plug-in lama, Quick Action, dan screen saver dari `~/Library`. Plug-in di `/Library` hanya ditampilkan |
-| **Riwayat** | Setiap pembersihan dicatat: apa yang dihapus, ukurannya, dan ke mana perginya. Yang masih ada di Trash bisa dikembalikan dengan **Kembalikan**, satu per satu atau satu sesi sekaligus, dan tidak pernah menimpa file baru di lokasi asal |
-| **Login Items** | Menampilkan Login Items, LaunchAgents milikmu (bisa dimatikan atau dihapus), serta agent dan daemon sistem (hanya dilihat), dan menandai yang yatim karena app-nya sudah tidak ada |
+| **Riwayat** | Setiap pembersihan dicatat: apa yang dihapus, ukurannya, dan ke mana perginya. Yang masih ada di Trash bisa dikembalikan dengan **Kembalikan**, satu per satu atau satu sesi sekaligus, dan tidak pernah menimpa file baru di lokasi asal Grafik pemakaian disk menampilkan perubahan ruang terpakai dari waktu ke waktu beserta yang dibersihkan tiap hari. |
+| **Login Items** | Menampilkan Login Items, LaunchAgents milikmu (bisa dimatikan atau dihapus), serta agent dan daemon sistem (hanya dilihat), dan menandai yang app-nya sudah tidak ada |
 | **Memori** | Menampilkan tekanan memori, rincian RAM, dan pemakaian swap, plus daftar app yang paling banyak memakai RAM (termasuk proses pembantunya) dengan tombol Keluar. Bisa juga melepas cache file dengan `purge`, yang butuh password admin |
+| **Pindai Keamanan** | Mencari private key, CSV ekspor kata sandi, file `.env` berisi rahasia, kredensial cloud, keystore, dan backup lama yang tercecer di Desktop, Documents, dan Downloads, serta memperbaiki kunci SSH di `~/.ssh` yang bisa dibaca orang lain. Hanya awal file yang namanya mirip file rahasia yang dibaca |
 | **Menu bar** | Menampilkan persentase CPU di menu bar, dengan panel berisi CPU, memori, disk, baterai, serta kesehatan baterai dan SSD. Aplikasi tetap berjalan di sana setelah jendela ditutup |
 | **Pengingat** | Memeriksa sampah setiap hari, minggu, atau bulan, lalu mengirim notifikasi kalau sudah lebih dari 1, 5, atau 10 GB. Tidak pernah menghapus apa pun sendiri |
 | **Pengaturan** | Bahasa (Bahasa Indonesia, English, 日本語, 简体中文, Español, Deutsch, Português (Brasil), Français, atau 한국어; instalasi baru mengikuti bahasa Mac. Selain Bahasa Indonesia dan English, semuanya diterjemahkan dengan AI, jadi mungkin ada yang kurang tepat: silakan [laporkan kesalahannya](https://github.com/rizkyraf8/KhaiCleanMac/issues)), tampilan (Ikuti Sistem, Terang, atau Gelap), buka saat login, menu bar, pengingat, batas umur cache dan Downloads, serta mode "hapus permanen" yang opsional. Buka dengan ⌘, atau dari bagian bawah sidebar |
+| **Pendapat kedua dari AI** | Opsional dan mati secara default. Di File Besar dan Sisa app terhapus, **Tanya AI** menanyakan ke model on-device Apple, Claude CLI yang terpasang, atau kunci API Anthropic milikmu apakah item yang dipilih aman dihapus. Yang dikirim hanya path (folder Home ditulis `~`), ukuran, dan tanggal, paling banyak 10 item; AI tidak pernah memilih atau menghapus apa pun |
+| **Command line** | `KhaiCleanMac scan [--category xcode] [--json]`, `history`, dan `version`, dijalankan dari binary app (buat link bernama `khaiclean`). Scan hanya mengukur; tidak ada yang dihapus dari command line |
 | **Panduan awal** | Muncul saat pertama kali dibuka: janji keamanan aplikasi, dan tutorial Akses Disk Penuh langkah demi langkah yang otomatis berubah hijau begitu izin diberikan. Bisa dibuka lagi dari Pengaturan → Tentang |
 
 Perubahan di setiap versi tercatat di [CHANGELOG.md](CHANGELOG.md). Versi yang sedang dipakai ditampilkan di bagian bawah sidebar dan di Pengaturan → Tentang.
@@ -109,6 +115,14 @@ open build/KhaiCleanMac.app
 
 `build-app.sh` meng-compile versi release universal (Apple silicon dan Intel dalam satu app), membuat ikon aplikasi, dan menyusun `build/KhaiCleanMac.app`. Pakai `KHAI_ARCH=arm64` (atau `x86_64`) untuk build satu arsitektur yang lebih cepat. Saat pengembangan, bisa juga memakai `swift run` atau membuka `Package.swift` di Xcode.
 
+Untuk mencoba perubahan berdampingan dengan KhaiCleanMac yang sudah terpasang, buat app dev:
+
+```bash
+./scripts/build-dev-app.sh --open
+```
+
+Hasilnya `build/KhaiCleanMac Dev.app`, build debug untuk arsitektur Mac-mu dengan nama dan bundle ID sendiri (`id.rizkyraf.KhaiCleanMac.dev`, versi `<x.y.z>-dev`). Pengaturan, riwayat, item Keychain, dan izin Akses Disk Penuh-nya terpisah, dan ia tidak pernah menawarkan update app, jadi tidak bisa menimpa atau mengubah app yang terpasang. `--open` menutup build dev yang sedang berjalan lalu membuka yang baru.
+
 Kalau Anda memakai [swiftly](https://github.com/swiftlang/swiftly), file `.swift-version` membuat swiftly memakai toolchain Swift dari Xcode di folder ini.
 
 ### Membuat DMG
@@ -148,7 +162,7 @@ swift build && .build/debug/KhaiCleanMac --snapshot ./snapshots [--dark] [--resu
 swift test
 ```
 
-Test membuat folder palsu di direktori sementara dan tidak pernah menyentuh file asli atau Trash. Yang diuji: apa yang dipilih untuk dihapus (entri cache browser dan umurnya, Code Cache dari versi lama, duplikat vs link, folder vendor, kunci app yang berjalan, agent yatim) dan cara penghapusannya (folder Trash per kelompok, pengembalian file kalau Trash menolak, mode permanen). GitHub Actions menjalankannya di setiap push.
+Test membuat folder palsu di direktori sementara dan tidak pernah menyentuh file asli atau Trash. Yang diuji: apa yang dipilih untuk dihapus (entri cache browser dan umurnya, Code Cache dari versi lama, duplikat vs link, folder vendor, kunci app yang berjalan, agent yang app-nya sudah dihapus) dan cara penghapusannya (folder Trash per kelompok, pengembalian file kalau Trash menolak, mode permanen). GitHub Actions menjalankannya di setiap push.
 
 ## Struktur proyek
 
@@ -171,7 +185,7 @@ Logo digambar lewat kode di `Design/LogoArtwork.swift`. Ikon aplikasi dan logo d
 
 ## Rencana berikutnya
 
-- Membersihkan cache sistem, log sistem, dan agent sistem yang yatim lewat privileged helper
+- Membersihkan cache sistem, log sistem, dan agent sistem yang app-nya sudah dihapus lewat privileged helper
 - Sign dengan Developer ID dan notarization untuk DMG yang bisa diunduh
 
 ## Kontribusi

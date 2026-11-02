@@ -29,6 +29,9 @@ final class DeveloperModel {
     var dockerAge: DockerAge = .days30
     /// Off by default: a stopped container's own files can hold data that isn't in a volume.
     var includeStoppedContainers = false
+    private(set) var brew: BrewState = .notInstalled
+    private(set) var isCleaningBrew = false
+    private var lastBrewCheck: Date?
 
     /// Stopped containers the current settings would remove (none unless they're opted in).
     var dockerContainersToRemove: [DockerContainer] {
@@ -97,6 +100,63 @@ final class DeveloperModel {
         applyDefaultSelection()
         withAnimation(.smooth) { phase = .results }
         Task { await refreshDocker() }
+        Task { await refreshHomebrew() }
+    }
+
+    // MARK: Homebrew
+
+    #if DEBUG
+    func previewHomebrew(_ state: BrewState) {
+        brew = state
+    }
+    #endif
+
+    /// Asking Homebrew takes half a minute, so a scan reuses an answer from the last few minutes.
+    /// `force` (Check Again, after a cleanup) always asks.
+    func refreshHomebrew(force: Bool = false) async {
+        guard let binary = Homebrew.binary() else {
+            brew = .notInstalled
+            return
+        }
+        if !force, case .ready = brew, let last = lastBrewCheck, Date().timeIntervalSince(last) < 10 * 60 { return }
+        guard brew != .checking else { return }
+        lastBrewCheck = Date()
+        withAnimation(.smooth) { brew = .checking }
+        let state = await Task.detached(priority: .userInitiated) { Homebrew.check(brew: binary) }.value
+        withAnimation(.smooth) { brew = state }
+    }
+
+    /// Homebrew removes old versions and downloads itself, for good: they aren't in the Trash afterwards.
+    func cleanHomebrew() async {
+        guard case .ready(let report) = brew, let binary = Homebrew.binary(), !isCleaningBrew else { return }
+        isCleaningBrew = true
+        let succeeded = await Task.detached(priority: .userInitiated) { Homebrew.cleanup(brew: binary) }.value
+        isCleaningBrew = false
+        if succeeded {
+            CleanHistory.shared.record(Self.brewHistory(report), source: "Homebrew")
+        }
+        toast = succeeded
+            ? ToastMessage(text: L("Homebrew: \(report.reclaimable.formattedBytes) dibersihkan", "Homebrew: \(report.reclaimable.formattedBytes) cleaned"),
+                           symbol: "checkmark.circle.fill", colors: Module.developer.colors)
+            : ToastMessage(text: L("Homebrew gagal membersihkan. Coba jalankan brew cleanup di Terminal.", "Homebrew couldn't clean up. Try running brew cleanup in Terminal."),
+                           symbol: "exclamationmark.triangle.fill", colors: Module.developer.colors)
+        await refreshHomebrew(force: true)
+    }
+
+    nonisolated static func brewHistory(_ report: BrewReport) -> CleanReport {
+        var history = CleanReport(permanent: true)
+        for removal in report.removals {
+            let item = CleanItem(url: URL(filePath: removal.path), size: removal.size)
+            history.removed.append(RemovedItem(item, trashedTo: nil, memberPaths: []))
+            history.movedCount += 1
+            history.movedSize += removal.size
+        }
+        return history
+    }
+
+    func copyUpgradeCommand() {
+        guard case .ready(let report) = brew else { return }
+        copy(DevCommand(id: "brew-upgrade", title: "Homebrew", detail: "", command: Homebrew.upgradeCommand(report.outdated), size: nil))
     }
 
     // MARK: Docker
@@ -171,7 +231,10 @@ final class DeveloperModel {
     /// Android Studio and IntelliJ keep the Gradle and Maven caches open, so those wait until the IDE is closed.
     private func refreshLocks() {
         var locks: [URL: String] = [:]
-        for item in allItems where !item.lockingBundleIDs.isEmpty {
+        for item in allItems where item.emulatorFolders.contains(where: AndroidSDK.isRunning) {
+            locks[item.url] = L("Emulator Android", "Android Emulator")
+        }
+        for item in allItems where !item.lockingBundleIDs.isEmpty && locks[item.url] == nil {
             for id in item.lockingBundleIDs {
                 if let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first {
                     locks[item.url] = app.localizedName ?? id
@@ -223,6 +286,10 @@ final class DeveloperModel {
         let trashItems = chosen.filter { $0.simulator == nil }.compactMap { Self.cleanItem(for: $0, cutoff: cutoff) }
         let report = trashItems.isEmpty ? CleanReport() : await Trasher.removeRecorded(trashItems, source: Module.developer.title)
         let failed = Set((report.unremoved + simulatorReport.failed).map(\.url))
+        // An emulator's .ini follows its folder, and only once the folder is gone: without the .ini
+        // Android Studio no longer lists the emulator, and a folder left behind would be lost from view.
+        let companions = Self.companions(of: chosen, unremoved: failed)
+        let companionReport = companions.isEmpty ? CleanReport() : await Trasher.removeRecorded(companions, source: Module.developer.title)
 
         withAnimation(.snappy) {
             for category in DevCategory.allCases {
@@ -237,10 +304,17 @@ final class DeveloperModel {
             }
             selected = failed
         }
-        let summary = [trashItems.isEmpty ? nil : report.summaryText, simulatorItems.isEmpty ? nil : simulatorReport.summaryText]
+        let summary = [trashItems.isEmpty ? nil : report.summaryText, simulatorItems.isEmpty ? nil : simulatorReport.summaryText,
+                       companionReport.isComplete ? nil : companionReport.summaryText]
         toast = ToastMessage(text: summary.compactMap { $0 }.joined(separator: " · "),
                              symbol: failed.isEmpty ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                              colors: Module.developer.colors)
+    }
+
+    /// The files that go with the items that were removed; none for an item that stayed.
+    nonisolated static func companions(of items: [DevItem], unremoved: Set<URL>) -> [CleanItem] {
+        items.filter { !unremoved.contains($0.url) }.flatMap(\.companions)
+            .map { CleanItem(url: $0, size: FileSizer.allocatedSize(of: $0)) }
     }
 
     /// What removing `item` hands to the Trasher. An entry-only cache gives only its stale entries, or

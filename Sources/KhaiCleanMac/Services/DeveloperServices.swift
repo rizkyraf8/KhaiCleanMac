@@ -2,14 +2,16 @@ import AppKit
 import SwiftUI
 
 enum DevCategory: String, CaseIterable, Identifiable, Sendable {
-    case projects, packageCaches, simulators, xcodeArchives
+    case projects, pythonEnvs, packageCaches, android, simulators, xcodeArchives
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .projects: L("Dependensi Proyek", "Project Dependencies")
+        case .pythonEnvs: L("Virtual Environment Python", "Python Virtual Environments")
         case .packageCaches: L("Cache Package Manager", "Package Manager Caches")
+        case .android: L("Android SDK & Emulator", "Android SDK & Emulators")
         case .simulators: L("Simulator Xcode", "Xcode Simulators")
         case .xcodeArchives: L("Arsip Xcode", "Xcode Archives")
         }
@@ -18,11 +20,17 @@ enum DevCategory: String, CaseIterable, Identifiable, Sendable {
     func subtitle(days: Int) -> String {
         switch self {
         case .projects:
-            L("node_modules, Pods, .build, dan target. Bisa dipasang ulang kapan saja. Yang tidak dipakai lebih dari \(days) hari dipilih otomatis.",
-              "node_modules, Pods, .build and target. They can be reinstalled any time. Ones unused for \(days)+ days are preselected.")
+            L("node_modules, Pods, .build, target, dan vendor (Composer). Bisa dipasang ulang kapan saja. Yang tidak dipakai lebih dari \(days) hari dipilih otomatis.",
+              "node_modules, Pods, .build, target and vendor (Composer). They can be reinstalled any time. Ones unused for \(days)+ days are preselected.")
+        case .pythonEnvs:
+            L("venv dan .venv di proyekmu, serta environment Poetry, Pipenv, virtualenvwrapper, pyenv dan Conda. Yang ada di samping requirements.txt atau pyproject.toml dan tidak dipakai lebih dari \(days) hari dipilih otomatis; paketnya bisa dipasang ulang dari file itu.",
+              "venv and .venv in your projects, plus Poetry, Pipenv, virtualenvwrapper, pyenv and Conda environments. Ones next to a requirements.txt or pyproject.toml and unused for \(days)+ days are preselected; their packages can be installed again from that file.")
         case .packageCaches:
             L("Hanya library dan versi yang tidak dipakai lebih dari \(days) hari yang dibersihkan. Yang masih dipakai proyek aktif tetap disimpan.",
               "Only libraries and versions unused for \(days)+ days are cleaned. Anything your active projects still use stays.")
+        case .android:
+            L("System image Android dan emulator (AVD). System image yang tidak dipakai emulator mana pun dipilih otomatis dan bisa diunduh lagi lewat SDK Manager. Emulator berisi app dan datanya, jadi tidak pernah dipilih otomatis.",
+              "Android system images and emulators (AVDs). System images no emulator uses are preselected and can be downloaded again in the SDK Manager. Emulators hold their apps and data, so they're never preselected.")
         case .simulators:
             L("Runtime iOS, watchOS, tvOS, visionOS dan perangkat simulatornya. Dihapus lewat Xcode, tidak lewat Trash; runtime bisa diunduh lagi di Xcode › Settings › Components. Runtime lama yang tidak dipakai lebih dari \(days) hari dan simulator yang runtimenya sudah hilang dipilih otomatis.",
               "iOS, watchOS, tvOS and visionOS runtimes and their simulator devices. Removed through Xcode, not the Trash; runtimes can be downloaded again in Xcode › Settings › Components. Older runtimes unused for \(days)+ days and simulators whose runtime is gone are preselected.")
@@ -35,7 +43,9 @@ enum DevCategory: String, CaseIterable, Identifiable, Sendable {
     var symbol: String {
         switch self {
         case .projects: "shippingbox.fill"
+        case .pythonEnvs: "cube.box.fill"
         case .packageCaches: "arrow.down.circle.fill"
+        case .android: "smartphone"
         case .simulators: "ipad.and.iphone"
         case .xcodeArchives: "archivebox.fill"
         }
@@ -44,7 +54,9 @@ enum DevCategory: String, CaseIterable, Identifiable, Sendable {
     var colors: [Color] {
         switch self {
         case .projects: Palette.leaf
+        case .pythonEnvs: Palette.sunny
         case .packageCaches: Palette.sky
+        case .android: Palette.mint
         case .simulators: Palette.ocean
         case .xcodeArchives: Palette.candy
         }
@@ -78,6 +90,10 @@ struct DevItem: Identifiable, Hashable, Sendable {
     var isSmart = false
     /// Set for simulator runtimes and devices, which only `simctl` may remove.
     var simulator: SimulatorTarget?
+    /// Files that belong with this item and go with it, such as an Android emulator's `.ini` next to its folder.
+    var companions: [URL] = []
+    /// Folders an Android emulator writes `*.lock` files into while it runs; the item is locked while any has one.
+    var emulatorFolders: [URL] = []
 
     var id: URL { url }
 
@@ -173,7 +189,10 @@ struct DeveloperScanner: Sendable {
         ("Pods", "Podfile", "CocoaPods"),
         (".build", "Package.swift", "Swift Package"),
         ("target", "Cargo.toml", "Rust"),
+        ("vendor", "composer.json", "PHP Composer"),
     ]
+    /// Folder names a project's Python virtual environment usually has. Hidden ones are looked into too.
+    private static let venvNames: Set<String> = ["venv", ".venv", "env", ".env", "virtualenv", ".virtualenv"]
     /// A project counts as active when it was built within this window; its Gradle version stays pinned.
     private static let activeProjectWindow: TimeInterval = 90 * 24 * 60 * 60
     private static let jetBrainsIDEs = ["com.google.android.studio", "com.jetbrains.intellij", "com.jetbrains.intellij.ce"]
@@ -187,7 +206,9 @@ struct DeveloperScanner: Sendable {
         let walk = walkProjects(progress: progress)
         if Task.isCancelled { return DevScanResult() }
         result.items[.projects] = walk.artifacts
+        result.items[.pythonEnvs] = (walk.venvs + PythonEnvironments.sharedItems()).sorted { $0.size > $1.size }
         result.items[.packageCaches] = caches(activeGradleVersions: walk.activeGradleVersions)
+        result.items[.android] = AndroidSDK.items()
         result.items[.simulators] = Simulators.items()
         result.items[.xcodeArchives] = xcodeArchives()
         result.commands = commands()
@@ -196,7 +217,7 @@ struct DeveloperScanner: Sendable {
 
     // MARK: Projects
 
-    private func walkProjects(progress: @Sendable (Int) -> Void) -> (artifacts: [DevItem], activeGradleVersions: Set<String>) {
+    private func walkProjects(progress: @Sendable (Int) -> Void) -> (artifacts: [DevItem], venvs: [DevItem], activeGradleVersions: Set<String>) {
         let home = URL.homeDirectory
         let library = home.appending(path: "Library").standardizedFileURL.path
         let artifactNames = Set(Self.artifacts.map(\.folder))
@@ -204,9 +225,10 @@ struct DeveloperScanner: Sendable {
         guard let enumerator = FileManager.default.enumerator(
             at: home, includingPropertiesForKeys: Self.walkKeys,
             options: [.skipsPackageDescendants], errorHandler: { _, _ in true }
-        ) else { return ([], []) }
+        ) else { return ([], [], []) }
 
         var found: [DevItem] = []
+        var venvs: [DevItem] = []
         var gradleVersions = Set<String>()
         var visited = 0
         var cancelled = false
@@ -227,14 +249,25 @@ struct DeveloperScanner: Sendable {
                 enumerator.skipDescendants()
                 return true
             }
+            if Self.venvNames.contains(name), PythonEnvironments.isEnvironment(url) {
+                enumerator.skipDescendants()
+                if let item = PythonEnvironments.projectItem(url, cutoff: cutoff) { venvs.append(item) }
+                return true
+            }
             // Hidden folders (.git, .Trash, caches…) are skipped, except SwiftPM's .build.
             if name.hasPrefix("."), !artifactNames.contains(name) {
                 enumerator.skipDescendants()
                 return true
             }
             guard let artifact = Self.artifacts.first(where: { $0.folder == name }) else { return true }
-            enumerator.skipDescendants()
             let project = url.deletingLastPathComponent()
+            // "vendor" is a common name (Go, Ruby's vendor/bundle, hand-copied code): only Composer's, with
+            // its record of what it installed, is skipped over; any other is walked like a normal folder.
+            if name == "vendor", !FileManager.default.fileExists(atPath: project.appending(path: artifact.manifest).path)
+                || !FileManager.default.fileExists(atPath: url.appending(path: "composer/installed.json").path) {
+                return true
+            }
+            enumerator.skipDescendants()
             guard FileManager.default.fileExists(atPath: project.appending(path: artifact.manifest).path) else { return true }
 
             let usage = UsageMeter.measure(url)
@@ -249,9 +282,9 @@ struct DeveloperScanner: Sendable {
             ))
             return true
         }
-        if cancelled { return ([], []) }
+        if cancelled { return ([], [], []) }
         progress(visited)
-        return (found.sorted { $0.size > $1.size }, gradleVersions)
+        return (found.sorted { $0.size > $1.size }, venvs, gradleVersions)
     }
 
     /// The Gradle version a project's wrapper asks for, if that project was built recently.
@@ -281,6 +314,17 @@ struct DeveloperScanner: Sendable {
         items += smartCache(tool: "Dart / Flutter", path: ".pub-cache/hosted") { UsageMeter.items(in: $0, depth: 2) }
         items += smartCache(tool: "Maven", path: ".m2/repository", lockedBy: Self.jetBrainsIDEs) { mavenVersions(in: $0) }
         items += smartCache(tool: "Android", path: ".android/cache") { UsageMeter.items(in: $0, depth: 1) }
+        // Downloaded .gem files; the installed gems next to them stay.
+        for path in [".gem/ruby", ".local/share/gem/ruby"] {
+            items += smartCache(tool: "RubyGems", path: path) { root in
+                UsageMeter.items(in: root, depth: 1)
+                    .flatMap { UsageMeter.items(in: $0.appending(path: "cache"), depth: 1) }
+                    .filter { $0.pathExtension == "gem" }
+            }
+        }
+        for path in [".composer/cache/files", ".cache/composer/files"] {
+            items += smartCache(tool: "Composer", path: path) { UsageMeter.items(in: $0, depth: 2) }
+        }
         return items.sorted { $0.size > $1.size }
     }
 
@@ -381,17 +425,9 @@ struct DeveloperScanner: Sendable {
 
     private func commands() -> [DevCommand] {
         let fm = FileManager.default
-        func exists(_ paths: String...) -> Bool { paths.contains { fm.fileExists(atPath: $0) } }
         var commands: [DevCommand] = []
 
-        if exists("/opt/homebrew/bin/brew", "/usr/local/bin/brew") {
-            commands.append(DevCommand(
-                id: "brew", title: "Homebrew",
-                detail: L("Menghapus versi lama paket dan unduhan Homebrew.", "Removes old package versions and Homebrew downloads."),
-                command: "brew cleanup --prune=all", size: nil
-            ))
-        }
-        // Docker has its own card, which cleans through the Docker CLI by age.
+        // Docker and Homebrew have their own cards, which clean through their own CLI.
         let goModules = URL.homeDirectory.appending(path: "go/pkg/mod")
         if fm.fileExists(atPath: goModules.path) {
             commands.append(DevCommand(

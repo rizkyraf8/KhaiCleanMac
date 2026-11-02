@@ -7,9 +7,16 @@ struct ScanLocation: Identifiable, Hashable, Sendable {
     /// A disk under /Volumes rather than the home folder.
     let isVolume: Bool
     let isRemovable: Bool
+    /// A shared folder from another computer or a NAS. Scans are slower there, and its server may not
+    /// have a Trash, in which case nothing can be moved to it.
+    var isNetwork = false
 
     var id: URL { url }
-    var symbol: String { isVolume ? (isRemovable ? "externaldrive.fill" : "internaldrive.fill") : "house.fill" }
+    var symbol: String {
+        guard isVolume else { return "house.fill" }
+        if isNetwork { return "server.rack" }
+        return isRemovable ? "externaldrive.fill" : "internaldrive.fill"
+    }
 
     static let home = ScanLocation(url: .homeDirectory, name: "Home", isVolume: false, isRemovable: false)
 
@@ -53,7 +60,7 @@ enum VolumeFinder {
         .volumeIsLocalKey, .volumeIsBrowsableKey, .volumeIsRemovableKey, .volumeIsEjectableKey, .volumeIsInternalKey,
     ]
 
-    /// Writable local disks the user can see in Finder, except the startup disk and Time Machine backups.
+    /// Writable disks the user can see in Finder, network shares included, except the startup disk and Time Machine backups.
     static func volumes() -> [ScanLocation] {
         let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
         return urls.compactMap { url in
@@ -68,12 +75,11 @@ enum VolumeFinder {
         guard components.count == 3, components[1] == "Volumes",
               values.volumeIsRootFileSystem != true,
               values.volumeIsReadOnly != true,
-              values.volumeIsLocal != false,
               values.volumeIsBrowsable != false,
               !ScanLocation.isTimeMachineBackup(url) else { return nil }
         let removable = values.volumeIsRemovable == true || values.volumeIsEjectable == true || values.volumeIsInternal == false
         return ScanLocation(url: url, name: values.volumeLocalizedName ?? values.volumeName ?? url.lastPathComponent,
-                            isVolume: true, isRemovable: removable)
+                            isVolume: true, isRemovable: removable, isNetwork: values.volumeIsLocal == false)
     }
 }
 
@@ -95,8 +101,19 @@ final class VolumeList {
         }
     }
 
+    private var generation = 0
+
+    /// Reads the mounted disks off the main thread: a network share whose server stopped answering
+    /// blocks every read of it until SMB gives up, which would freeze the whole window.
     func refresh() {
-        volumes = VolumeFinder.volumes()
+        generation += 1
+        let current = generation
+        Task { [weak self] in
+            let found = await Task.detached(priority: .utility) { VolumeFinder.volumes() }.value
+            // A later refresh (another disk came or went) may already have finished.
+            guard let self, current == generation else { return }
+            volumes = found
+        }
     }
 
     func contains(_ location: ScanLocation) -> Bool {

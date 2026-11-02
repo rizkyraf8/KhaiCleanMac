@@ -6,24 +6,39 @@ struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        let status = MenuBarStatus(phase: scan.phase, hasUnseenResults: scan.hasUnseenResults, progress: scan.progress,
+                                   found: scan.totalSize, cpu: monitor.cpu)
         HStack(spacing: 3) {
             Image(nsImage: LogoArtwork.menuBarImage())
-            // A running scan, and then its unopened results, take the place of the CPU reading.
-            if scan.phase == .scanning {
-                Image(systemName: "sparkle.magnifyingglass")
-                Text("\(Int(scan.progress * 100))%")
-                    .monospacedDigit()
-            } else if scan.phase == .results && scan.hasUnseenResults {
-                Image(systemName: "checkmark.circle.fill")
-                Text(scan.totalSize.formattedBytes)
-                    .monospacedDigit()
-            } else {
-                Text("\(Int(monitor.cpu * 100))%")
-                    .monospacedDigit()
-            }
+            // One Text whose content changes, never a switch between views: the status item
+            // doesn't always redraw when the label's structure changes, which left "100%" behind.
+            (status.symbol.map { Text(Image(systemName: $0)) + Text(" ") } ?? Text(""))
+                + Text(status.value)
         }
+        .monospacedDigit()
         // The label lives as long as the app, so it hands out the way to reopen the window.
         .onAppear { AppWindow.openMain = { openWindow(id: "main") } }
+    }
+}
+
+/// What the menu bar shows next to the logo: a running scan, then its unopened results, take the
+/// place of the CPU reading until the results are seen.
+struct MenuBarStatus: Equatable {
+    let symbol: String?
+    let value: String
+
+    init(phase: SmartScanModel.Phase, hasUnseenResults: Bool, progress: Double, found: Int64, cpu: Double) {
+        switch phase {
+        case .scanning:
+            symbol = "sparkle.magnifyingglass"
+            value = "\(Int(progress * 100))%"
+        case .results where hasUnseenResults:
+            symbol = "checkmark.circle.fill"
+            value = found.formattedBytes
+        default:
+            symbol = nil
+            value = "\(Int(cpu * 100))%"
+        }
     }
 }
 

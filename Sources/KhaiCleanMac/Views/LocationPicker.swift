@@ -18,6 +18,12 @@ struct LocationPicker: View {
                 .labelsHidden()
                 .fixedSize()
                 .help(L("Pilih folder Home atau disk lain", "Choose the Home folder or another disk"))
+                if selection.isNetwork {
+                    Label(L("Disk jaringan: pemindaian lebih lambat, dan servernya mungkin tidak punya Trash", "Network disk: scans are slower, and its server may have no Trash"),
+                          systemImage: "network")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         // A disk that was ejected can't be scanned anymore.

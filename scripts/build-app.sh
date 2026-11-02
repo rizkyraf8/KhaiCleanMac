@@ -1,10 +1,17 @@
 #!/bin/bash
 # Builds KhaiCleanMac.app into ./build (ad-hoc signed, for local use).
+# KHAI_FLAVOR=dev builds "KhaiCleanMac Dev.app" instead (see scripts/build-dev-app.sh).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-APP="$ROOT/build/KhaiCleanMac.app"
+case "${KHAI_FLAVOR:-release}" in
+    release) NAME="KhaiCleanMac"; CONFIG="${KHAI_CONFIG:-release}" ;;
+    # Its own name and bundle ID, so it never shares settings, history or permissions with the installed app.
+    dev) NAME="KhaiCleanMac Dev"; CONFIG="${KHAI_CONFIG:-debug}" ;;
+    *) echo "✗ KHAI_FLAVOR harus release atau dev" >&2; exit 1 ;;
+esac
+APP="$ROOT/build/$NAME.app"
 ICON="$ROOT/Resources/AppIcon.icns"
 ARTWORK="$ROOT/Sources/KhaiCleanMac/Design/LogoArtwork.swift"
 
@@ -30,9 +37,9 @@ case "${KHAI_ARCH:-universal}" in
     arm64|x86_64) ARCHS=(--arch "$KHAI_ARCH") ;;
     *) echo "✗ KHAI_ARCH harus universal, arm64, atau x86_64" >&2; exit 1 ;;
 esac
-echo "→ Compile (release, ${KHAI_ARCH:-universal})"
-swift build -c release "${ARCHS[@]}"
-BIN="$(swift build -c release "${ARCHS[@]}" --show-bin-path)/KhaiCleanMac"
+echo "→ Compile ($CONFIG, ${KHAI_ARCH:-universal})"
+swift build -c "$CONFIG" "${ARCHS[@]}"
+BIN="$(swift build -c "$CONFIG" "${ARCHS[@]}" --show-bin-path)/KhaiCleanMac"
 
 echo "→ Menyusun $APP"
 rm -rf "$APP"
@@ -40,6 +47,18 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/KhaiCleanMac"
 echo "→ Arsitektur: $(lipo -archs "$APP/Contents/MacOS/KhaiCleanMac")"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+if [[ "${KHAI_FLAVOR:-release}" == "dev" ]]; then
+    PLIST="$APP/Contents/Info.plist"
+    VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$PLIST")"
+    /usr/libexec/PlistBuddy \
+        -c "Set :CFBundleIdentifier id.rizkyraf.KhaiCleanMac.dev" \
+        -c "Set :CFBundleName $NAME" \
+        -c "Set :CFBundleDisplayName $NAME" \
+        -c "Set :CFBundleShortVersionString $VERSION-dev" \
+        -c "Add :KhaiDevBuild bool true" \
+        "$PLIST"
+    echo "→ Build dev: id.rizkyraf.KhaiCleanMac.dev, versi $VERSION-dev"
+fi
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 
 # An ad-hoc signature changes on every build, and macOS then silently drops the Full Disk Access

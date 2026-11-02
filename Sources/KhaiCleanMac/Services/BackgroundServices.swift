@@ -49,6 +49,7 @@ final class ReminderService: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
         loop = Task {
             while !Task.isCancelled {
+                StorageTimeline.shared.recordNow()
                 await checkIfDue()
                 try? await Task.sleep(for: .seconds(60 * 60))
             }
@@ -71,9 +72,10 @@ final class ReminderService: NSObject, UNUserNotificationCenterDelegate {
     @discardableResult
     func check(notify: Bool) async -> Int64 {
         let chromeMaxAgeDays = AppSettings.shared.chromeCacheAge.rawValue
+        let logsMaxAgeDays = AppSettings.shared.logsAge.rawValue
         let total = await Task.detached(priority: .utility) {
-            let scanner = JunkScanner(chromeMaxAgeDays: chromeMaxAgeDays)
-            return [JunkKind.userCache, .browsers, .userLogs, .developer].reduce(Int64(0)) { sum, kind in
+            let scanner = JunkScanner(chromeMaxAgeDays: chromeMaxAgeDays, logsMaxAgeDays: logsMaxAgeDays)
+            return [JunkKind.userCache, .browsers, .userLogs, .crashReports, .developer].reduce(Int64(0)) { sum, kind in
                 sum + scanner.scan(kind).reduce(0) { $0 + $1.size }
             }
         }.value

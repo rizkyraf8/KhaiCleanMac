@@ -26,6 +26,7 @@ cd KhaiCleanMac
 swift build
 swift test
 ./scripts/build-app.sh   # builds build/KhaiCleanMac.app
+./scripts/build-dev-app.sh --open   # "KhaiCleanMac Dev.app": own bundle ID, runs next to the installed app
 ```
 
 Debug builds can render every screen to PNG without opening a window:

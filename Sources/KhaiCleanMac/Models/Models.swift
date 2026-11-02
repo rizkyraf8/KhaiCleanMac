@@ -1,7 +1,8 @@
 import SwiftUI
 
 enum Module: String, CaseIterable, Identifiable {
-    case home, smartScan, largeFiles, duplicates, developer, privacy, spaceLens, uninstaller, appUpdates, extensions, startup, memory, history
+    case home, smartScan, largeFiles, duplicates, similarPhotos, developer, iCloud, privacy
+    case spaceLens, systemData, uninstaller, appUpdates, extensions, startup, memory, security, history
 
     enum Section: String, CaseIterable {
         case overview, clean, manage
@@ -21,8 +22,8 @@ enum Module: String, CaseIterable, Identifiable {
     var section: Section {
         switch self {
         case .home: .overview
-        case .smartScan, .largeFiles, .duplicates, .developer, .privacy: .clean
-        case .spaceLens, .uninstaller, .appUpdates, .extensions, .startup, .memory, .history: .manage
+        case .smartScan, .largeFiles, .duplicates, .similarPhotos, .developer, .iCloud, .privacy: .clean
+        case .spaceLens, .systemData, .uninstaller, .appUpdates, .extensions, .startup, .memory, .security, .history: .manage
         }
     }
 
@@ -41,6 +42,10 @@ enum Module: String, CaseIterable, Identifiable {
         case .uninstaller: "Uninstaller"
         case .appUpdates: L("Pembaruan App", "App Updates")
         case .privacy: L("Privasi", "Privacy")
+        case .similarPhotos: L("Foto Mirip", "Similar Photos")
+        case .iCloud: "iCloud Drive"
+        case .systemData: L("Data Sistem", "System Data")
+        case .security: L("Pindai Keamanan", "Security Scan")
         }
     }
 
@@ -59,6 +64,10 @@ enum Module: String, CaseIterable, Identifiable {
         case .uninstaller: L("Hapus app sampai bersih", "Remove apps completely")
         case .appUpdates: L("Versi baru app kamu", "New versions of your apps")
         case .privacy: L("Riwayat & cookie browser", "Browser history & cookies")
+        case .similarPhotos: L("Foto yang hampir sama", "Near-identical shots")
+        case .iCloud: L("Salinan yang sudah diunduh", "Downloaded copies")
+        case .systemData: L("Isi \"System Data\"", "What's in System Data")
+        case .security: L("Kunci & file sensitif", "Keys & sensitive files")
         }
     }
 
@@ -70,13 +79,17 @@ enum Module: String, CaseIterable, Identifiable {
         case .developer: L("Bersihkan dependensi proyek lama, cache package manager, simulator, dan arsip Xcode.", "Clean up old project dependencies, package manager caches, simulators and Xcode archives.")
         case .spaceLens: L("Lihat folder mana yang paling banyak makan tempat.", "See which folders take up the most space.")
         case .home: L("Ringkasan kondisi Mac dan semua fitur KhaiCleanMac.", "An overview of your Mac and every KhaiCleanMac feature.")
-        case .startup: L("Atur app dan agent yang otomatis jalan saat login, dan bersihkan yang yatim.", "Manage the apps and agents that start at login, and clean up orphans.")
+        case .startup: L("Atur app dan agent yang otomatis jalan saat login, dan bersihkan sisa dari app yang sudah dihapus.", "Manage the apps and agents that start at login, and clean up orphans.")
         case .memory: L("Lihat tekanan memori dan app yang paling banyak memakai RAM.", "See memory pressure and the apps using the most RAM.")
         case .history: L("Semua yang pernah dibersihkan, dan kembalikan yang masih ada di Trash.", "Everything you've cleaned, and put back what's still in the Trash.")
         case .extensions: L("Atur ekstensi Safari, Finder, widget, Quick Look, dan plug-in lain.", "Manage Safari, Finder, widget and Quick Look extensions and other plug-ins.")
         case .uninstaller: L("Hapus aplikasi beserta file sisa yang ditinggalkannya.", "Remove apps together with the files they leave behind.")
         case .appUpdates: L("Cari tahu app mana yang punya versi lebih baru.", "Find out which apps have a newer version.")
         case .privacy: L("Hapus riwayat, cookie, dan isian formulir browser. Hanya yang kamu pilih.", "Clear browser history, cookies and form data. Only what you pick.")
+        case .similarPhotos: L("Temukan foto yang terlihat hampir sama, seperti jepretan beruntun atau versi yang di-resize.", "Find photos that look nearly the same, such as burst shots or resized copies.")
+        case .iCloud: L("Lepas salinan lokal file iCloud Drive yang besar. File tetap ada di iCloud.", "Remove the local copy of big iCloud Drive files. They stay in iCloud.")
+        case .systemData: L("Lihat apa saja yang mengisi System Data, dan hapus snapshot lokal Time Machine.", "See what fills System Data, and delete local Time Machine snapshots.")
+        case .security: L("Cari private key, kata sandi yang diekspor, dan file sensitif lain yang tercecer.", "Find private keys, exported passwords and other sensitive files lying around.")
         }
     }
 
@@ -95,6 +108,10 @@ enum Module: String, CaseIterable, Identifiable {
         case .uninstaller: "xmark.bin.fill"
         case .appUpdates: "arrow.down.app.fill"
         case .privacy: "hand.raised.fill"
+        case .similarPhotos: "photo.stack.fill"
+        case .iCloud: "icloud.fill"
+        case .systemData: "gearshape.2.fill"
+        case .security: "lock.shield.fill"
         }
     }
 
@@ -113,6 +130,10 @@ enum Module: String, CaseIterable, Identifiable {
         case .uninstaller: Palette.lavender
         case .appUpdates: Palette.aqua
         case .privacy: Palette.blush
+        case .similarPhotos: Palette.peach
+        case .iCloud: Palette.sky
+        case .systemData: Palette.slate
+        case .security: Palette.berry
         }
     }
 }
@@ -138,7 +159,7 @@ struct CleanItem: Identifiable, Hashable, Sendable {
 }
 
 enum JunkKind: String, CaseIterable, Identifiable, Sendable {
-    case userCache, browsers, userLogs, developer, installers, oldDownloads, mailDownloads, iosBackups, trash
+    case userCache, browsers, userLogs, crashReports, developer, installers, oldDownloads, oldFiles, mailDownloads, iosBackups, trash
 
     var id: String { rawValue }
 
@@ -147,9 +168,11 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .userCache: L("Cache Aplikasi", "App Caches")
         case .browsers: L("Cache Browser", "Browser Cache")
         case .userLogs: L("Log Aplikasi", "App Logs")
+        case .crashReports: L("Laporan Crash", "Crash Reports")
         case .developer: L("Sampah Xcode", "Xcode Junk")
         case .installers: L("Installer Lama", "Old Installers")
         case .oldDownloads: L("Downloads Lama", "Old Downloads")
+        case .oldFiles: L("File Lama", "Old Files")
         case .mailDownloads: L("Lampiran Mail", "Mail Attachments")
         case .iosBackups: L("Backup & Update iOS", "iOS Backups & Updates")
         case .trash: L("Isi Trash", "Trash")
@@ -161,9 +184,11 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .userCache: L("File sementara yang dibuat ulang otomatis oleh aplikasi.", "Temporary files that apps rebuild automatically.")
         case .browsers: L("Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari. Hanya cache lama dan usang.", "Chrome, Brave, Edge, Arc, Vivaldi, Firefox, Safari. Only old and obsolete cache.")
         case .userLogs: L("Catatan aktivitas lama yang jarang dibutuhkan.", "Old activity records you rarely need.")
+        case .crashReports: L("Laporan crash dan hang yang dibuat macOS saat app berhenti mendadak. Sudah terkirim kalau kamu mengizinkan analitik.", "Crash and hang reports macOS writes when an app quits unexpectedly. Already sent if you allow analytics.")
         case .developer: L("DerivedData, Device Support, dan cache simulator.", "DerivedData, Device Support and simulator caches.")
         case .installers: L("File .dmg dan .pkg di folder Downloads.", ".dmg and .pkg files in your Downloads folder.")
         case .oldDownloads: L("File di Downloads yang sudah lama tidak dibuka.", "Files in Downloads you haven't opened in a long time.")
+        case .oldFiles: L("File dan folder di Desktop dan Documents yang sudah lama tidak dibuka atau diubah. Item iCloud dan repo Git dilewati.", "Files and folders in Desktop and Documents you haven't opened or changed in a long time. iCloud items and Git repositories are skipped.")
         case .mailDownloads: L("Salinan lampiran yang pernah dibuka dari Mail. Lampiran aslinya tetap ada di email.", "Copies of attachments opened from Mail. The originals stay in your email.")
         case .iosBackups: L("Backup iPhone/iPad lama dan file update iOS (.ipsw).", "Old iPhone/iPad backups and iOS update files (.ipsw).")
         case .trash: L("Yang sudah ada di Trash. Dihapus permanen.", "What's already in the Trash. Deleted permanently.")
@@ -175,9 +200,11 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .userCache: "internaldrive.fill"
         case .browsers: "globe"
         case .userLogs: "doc.plaintext.fill"
+        case .crashReports: "exclamationmark.octagon.fill"
         case .developer: "hammer.fill"
         case .installers: "shippingbox.fill"
         case .oldDownloads: "arrow.down.circle.fill"
+        case .oldFiles: "folder.fill"
         case .mailDownloads: "envelope.fill"
         case .iosBackups: "iphone"
         case .trash: "trash.fill"
@@ -189,9 +216,11 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
         case .userCache: Palette.leaf
         case .browsers: Palette.sky
         case .userLogs: Palette.sunny
+        case .crashReports: Palette.blush
         case .developer: Palette.ocean
         case .installers: Palette.candy
         case .oldDownloads: Palette.peach
+        case .oldFiles: Palette.aqua
         case .mailDownloads: Palette.ocean
         case .iosBackups: Palette.lavender
         case .trash: Palette.berry
@@ -201,13 +230,14 @@ enum JunkKind: String, CaseIterable, Identifiable, Sendable {
     /// Personal files (downloads, backups) and anything permanent are opt-in.
     var selectedByDefault: Bool {
         switch self {
-        case .userCache, .browsers, .userLogs, .developer: true
-        case .installers, .oldDownloads, .mailDownloads, .iosBackups, .trash: false
+        case .userCache, .browsers, .userLogs, .crashReports, .developer: true
+        case .installers, .oldDownloads, .oldFiles, .mailDownloads, .iosBackups, .trash: false
         }
     }
 
-    /// macOS only lets the app read these places with Full Disk Access.
-    var needsFullDiskAccess: Bool { self == .iosBackups || self == .trash || self == .mailDownloads }
+    /// macOS only lets the app read these places with Full Disk Access. Desktop and Documents would
+    /// otherwise ask for permission in the middle of a scan, so they wait for it too.
+    var needsFullDiskAccess: Bool { [.iosBackups, .trash, .mailDownloads, .oldFiles].contains(self) }
 }
 
 struct JunkCategory: Identifiable, Sendable {

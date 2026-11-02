@@ -27,3 +27,17 @@ import Testing
         #expect(model.categories.isEmpty)
     }
 }
+
+@Suite struct MenuBarStatusTests {
+    @Test func showsTheScanThenItsResultsThenTheCPUAgain() {
+        let scanning = MenuBarStatus(phase: .scanning, hasUnseenResults: false, progress: 1, found: 0, cpu: 0.07)
+        #expect(scanning.value == "100%")
+        #expect(scanning.symbol != nil)
+        let unseen = MenuBarStatus(phase: .results, hasUnseenResults: true, progress: 1, found: 2_000_000, cpu: 0.07)
+        #expect(unseen.symbol == "checkmark.circle.fill")
+        // Once the results are opened, the CPU reading comes back.
+        #expect(MenuBarStatus(phase: .results, hasUnseenResults: false, progress: 1, found: 2_000_000, cpu: 0.07)
+                == MenuBarStatus(phase: .idle, hasUnseenResults: false, progress: 0, found: 0, cpu: 0.07))
+        #expect(MenuBarStatus(phase: .done, hasUnseenResults: false, progress: 1, found: 0, cpu: 0.07).value == "7%")
+    }
+}

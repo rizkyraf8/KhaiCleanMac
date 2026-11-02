@@ -95,7 +95,7 @@ struct DeveloperView: View {
 
     @ViewBuilder
     private var resultsView: some View {
-        if model.categories.isEmpty && model.result.commands.isEmpty && model.docker == .notInstalled {
+        if model.categories.isEmpty && model.result.commands.isEmpty && model.docker == .notInstalled && model.brew == .notInstalled {
             EmptyStateView(
                 symbol: "checkmark.seal.fill",
                 colors: module.colors,
@@ -115,6 +115,9 @@ struct DeveloperView: View {
                         }
                         if model.docker != .notInstalled {
                             DockerCard(model: model)
+                        }
+                        if model.brew != .notInstalled {
+                            HomebrewCard(model: model)
                         }
                         if !model.result.commands.isEmpty {
                             CommandsCard(model: model)
@@ -451,6 +454,154 @@ struct DockerCard: View {
                       "\n\nAlso \(containers.count) stopped containers, with the files inside them: \(Self.names(containers)).")
         }
         return text
+    }
+}
+
+/// Shows what `brew cleanup` would remove and which packages are outdated. Homebrew removes things
+/// itself, for good, so like Docker this is a separate step with its own confirmation.
+struct HomebrewCard: View {
+    @Bindable var model: DeveloperModel
+    @State private var confirm = false
+    @State private var showsOutdated = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                GradientIcon(symbol: "mug.fill", colors: Palette.peach, size: 42)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Homebrew")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text(L("Versi lama paket yang sudah diganti versi baru, dan unduhan di cache Homebrew. Dihapus oleh Homebrew sendiri lewat brew cleanup, tidak lewat Trash. Paket yang terpasang tidak disentuh.",
+                           "Old package versions that a newer one replaced, and downloads in Homebrew's cache. Removed by Homebrew itself through brew cleanup, not moved to the Trash. Installed packages aren't touched."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if model.isCleaningBrew || model.brew == .checking { ProgressView().controlSize(.small) }
+            }
+
+            switch model.brew {
+            case .notInstalled:
+                EmptyView()
+            case .checking:
+                Text(L("Menanyakan Homebrew… bisa makan waktu setengah menit.", "Asking Homebrew… this can take half a minute."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            case .failed:
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.sunny[1])
+                    Text(L("Homebrew tidak menjawab. Coba jalankan brew doctor di Terminal, lalu periksa lagi.",
+                           "Homebrew didn't answer. Try running brew doctor in Terminal, then check again."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Button(L("Periksa Lagi", "Check Again")) { Task { await model.refreshHomebrew(force: true) } }
+                        .buttonStyle(SoftButtonStyle())
+                }
+            case .ready(let report):
+                ready(report)
+            }
+        }
+        .softCard()
+        .alert(L("Bersihkan Homebrew?", "Clean up Homebrew?"), isPresented: $confirm) {
+            Button(L("Bersihkan", "Clean"), role: .destructive) { Task { await model.cleanHomebrew() } }
+            Button(L("Batal", "Cancel"), role: .cancel) {}
+        } message: {
+            if case .ready(let report) = model.brew {
+                Text(L("Homebrew menghapus permanen \(report.removals.count) item (\(report.reclaimable.formattedBytes)), tidak lewat Trash. Versi lama tidak bisa dipakai lagi sesudahnya; unduhan diunduh ulang kalau dibutuhkan.",
+                       "Homebrew deletes \(report.removals.count) items (\(report.reclaimable.formattedBytes)) for good, not to the Trash. Old versions can't be used afterwards; downloads are fetched again if needed."))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func ready(_ report: BrewReport) -> some View {
+        HStack(spacing: 10) {
+            StatTile(title: L("Bisa dibersihkan", "Can be cleaned"), value: report.reclaimable.formattedBytes, colors: Palette.peach)
+            StatTile(title: L("Versi lama", "Old versions"), value: "\(report.oldVersions.count)", colors: Palette.sunny)
+            StatTile(title: L("Unduhan", "Downloads"), value: "\(report.downloads.count)", colors: Palette.sky)
+            StatTile(title: L("Perlu update", "Outdated"), value: "\(report.outdated.count)", colors: Palette.lavender)
+        }
+        if !report.removals.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(report.removals.prefix(5), id: \.self) { removal in
+                    HStack {
+                        Text(URL(filePath: removal.path).abbreviatedPath)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                        Spacer(minLength: 8)
+                        Text(removal.size.formattedBytes)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                }
+                if report.removals.count > 5 {
+                    Text(L("dan \(report.removals.count - 5) lagi", "and \(report.removals.count - 5) more"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.03)))
+        }
+        HStack(spacing: 10) {
+            if !report.outdated.isEmpty {
+                Button {
+                    withAnimation(.snappy) { showsOutdated.toggle() }
+                } label: {
+                    Label(showsOutdated ? L("Sembunyikan paket", "Hide packages") : L("Lihat \(report.outdated.count) paket", "Show \(report.outdated.count) packages"),
+                          systemImage: showsOutdated ? "chevron.up" : "chevron.down")
+                }
+                .buttonStyle(SoftButtonStyle())
+                Button {
+                    model.copyUpgradeCommand()
+                } label: {
+                    Label(L("Salin Perintah Upgrade", "Copy Upgrade Command"), systemImage: "doc.on.doc")
+                }
+                .buttonStyle(SoftButtonStyle())
+                .help(L("Upgrade bisa meminta password atau makan waktu lama, jadi jalankan di Terminal.",
+                        "Upgrades can ask for a password or take a while, so run them in Terminal."))
+            }
+            Spacer(minLength: 8)
+            Button {
+                confirm = true
+            } label: {
+                Label(L("Bersihkan Homebrew", "Clean Up Homebrew"), systemImage: "mug")
+            }
+            .buttonStyle(GradientButtonStyle(colors: Palette.peach))
+            .disabled(model.isCleaningBrew || report.removals.isEmpty)
+        }
+        if showsOutdated {
+            VStack(spacing: 2) {
+                ForEach(report.outdated) { package in
+                    HStack(spacing: 8) {
+                        Text(package.name)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(package.isCask ? "cask" : "formula")
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.primary.opacity(0.06)))
+                        if package.isPinned {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Palette.sunny[1])
+                                .help(L("Di-pin, tidak ikut di-upgrade", "Pinned, left out of the upgrade"))
+                        }
+                        Spacer(minLength: 8)
+                        Text("\(package.installed) → \(package.current)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                }
+            }
+        }
     }
 }
 

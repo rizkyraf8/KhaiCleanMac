@@ -222,6 +222,11 @@ struct JunkScanner: Sendable {
     var chromeMaxAgeDays = ChromeCacheAge.days30.rawValue
     /// How long a download may go unopened before it counts as old.
     var downloadsMaxAgeDays = DownloadsAge.days90.rawValue
+    /// Log files and crash reports changed more recently than this stay; 0 offers every one.
+    var logsMaxAgeDays = 0
+    /// A file just moved into Desktop or Documents counts as used. Tests turn this off: the date a
+    /// file was added can't be set back.
+    var countsAddedDate = true
     var home = URL.homeDirectory
 
     private static let installerExtensions: Set<String> = ["dmg", "pkg", "mpkg", "xip"]
@@ -254,13 +259,17 @@ struct JunkScanner: Sendable {
         case .browsers:
             items = BrowserCacheScanner(maxAgeDays: chromeMaxAgeDays, home: home).scan()
         case .userLogs:
-            items = children(of: library("Logs"))
+            items = logs()
+        case .crashReports:
+            items = crashReports()
         case .developer:
             items = Self.developerFolders.flatMap { children(of: library($0)) }
         case .installers:
             items = installers()
         case .oldDownloads:
             items = oldDownloads()
+        case .oldFiles:
+            items = oldFiles()
         case .mailDownloads:
             items = mailDownloads()
         case .iosBackups:
@@ -293,6 +302,114 @@ struct JunkScanner: Sendable {
             return CleanItem(url: url, size: FileSizer.allocatedSize(of: url),
                              detail: L("Terakhir dipakai \(when)", "Last used \(when)"))
         }
+    }
+
+    private var logsCutoff: Date? {
+        logsMaxAgeDays > 0 ? Date().addingTimeInterval(-Double(logsMaxAgeDays) * 24 * 60 * 60) : nil
+    }
+
+    /// Everything in ~/Library/Logs but crash reports, which have their own category. With an age limit,
+    /// a folder only gives its files that haven't changed since, and the folder itself stays.
+    private func logs() -> [CleanItem] {
+        let items = children(of: library("Logs"), excluding: ["DiagnosticReports"])
+        guard let cutoff = logsCutoff else { return items }
+        return items.compactMap { item in
+            let isFolder = (try? item.url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            guard isFolder else { return (Self.modified(item.url) ?? .distantFuture) < cutoff ? item : nil }
+            let stale = Self.files(in: item.url).filter { (Self.modified($0) ?? .distantFuture) < cutoff }
+            guard !stale.isEmpty else { return nil }
+            return CleanItem(url: item.url, size: stale.reduce(0) { $0 + FileSizer.allocatedSize(of: $1) }, members: stale)
+        }
+    }
+
+    /// Crash and hang reports in ~/Library/Logs/DiagnosticReports, as one item. The folder stays:
+    /// macOS writes new reports into it. Reports of the whole Mac (/Library/Logs) need an administrator.
+    private func crashReports() -> [CleanItem] {
+        let folder = library("Logs/DiagnosticReports")
+        let cutoff = logsCutoff ?? .distantFuture
+        let reports = Self.files(in: folder).filter { (Self.modified($0) ?? .distantFuture) < cutoff }
+        guard !reports.isEmpty else { return [] }
+        // "Xcode-2026-10-01-101500.ips" → "Xcode"; the apps that crashed most come first.
+        let apps = Dictionary(grouping: reports) { Self.crashingApp($0.lastPathComponent) }
+            .sorted { $0.value.count > $1.value.count }
+            .prefix(3).map(\.key)
+        return [CleanItem(url: folder, size: reports.reduce(0) { $0 + FileSizer.allocatedSize(of: $1) },
+                          title: L("\(reports.count) laporan crash", "\(reports.count) crash reports"),
+                          detail: L("Paling sering: \(apps.joined(separator: ", "))", "Most often: \(apps.joined(separator: ", "))"),
+                          members: reports)]
+    }
+
+    static func crashingApp(_ fileName: String) -> String {
+        let base = (fileName as NSString).deletingPathExtension
+        if let date = base.range(of: #"[-_]\d{4}-\d{2}-\d{2}"#, options: .regularExpression) {
+            return String(base[..<date.lowerBound])
+        }
+        return base
+    }
+
+    /// Top-level files and folders in Desktop and Documents not opened or changed for a while. A folder
+    /// counts as used when anything inside it is. iCloud items (removing one removes it on every device)
+    /// and Git repositories are never offered.
+    private func oldFiles() -> [CleanItem] {
+        let keys: Set<URLResourceKey> = [.contentAccessDateKey, .contentModificationDateKey, .addedToDirectoryDateKey,
+                                         .isDirectoryKey, .isPackageKey, .isUbiquitousItemKey, .isSymbolicLinkKey]
+        let cutoff = Date().addingTimeInterval(-Double(downloadsMaxAgeDays) * 24 * 60 * 60)
+        let folders = ["Desktop", "Documents"].map { home.appending(path: $0, directoryHint: .isDirectory) }
+        return folders.flatMap { folder -> [CleanItem] in
+            let urls = (try? FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles])) ?? []
+            return urls.compactMap { url in
+                guard let values = try? url.resourceValues(forKeys: keys),
+                      values.isUbiquitousItem != true, values.isSymbolicLink != true else { return nil }
+                let ownDate = [values.contentAccessDate, values.contentModificationDate, countsAddedDate ? values.addedToDirectoryDate : nil]
+                    .compactMap { $0 }.max()
+                guard let ownDate, ownDate < cutoff else { return nil }
+                if values.isDirectory == true, values.isPackage != true {
+                    guard !FileManager.default.fileExists(atPath: url.appending(path: ".git").path),
+                          !Self.hasRecentOrCloudFile(in: url, since: cutoff) else { return nil }
+                }
+                let when = ownDate.formatted(Date.RelativeFormatStyle(presentation: .named).locale(AppSettings.shared.locale))
+                return CleanItem(url: url, size: FileSizer.allocatedSize(of: url),
+                                 detail: L("\(folder.lastPathComponent) · terakhir dipakai \(when)", "\(folder.lastPathComponent) · last used \(when)"))
+            }
+        }
+    }
+
+    /// Stops at the first file used since `cutoff`, or the first iCloud file, so busy folders are quick.
+    private static func hasRecentOrCloudFile(in folder: URL, since cutoff: Date) -> Bool {
+        let keys: [URLResourceKey] = [.contentAccessDateKey, .contentModificationDateKey, .isUbiquitousItemKey]
+        guard let enumerator = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: keys, options: [],
+                                                               errorHandler: { _, _ in true }) else { return true }
+        var found = false
+        enumerator.forEachURL { url in
+            if Task.isCancelled { found = true; return false }
+            guard let values = try? url.resourceValues(forKeys: Set(keys)) else { return true }
+            if values.isUbiquitousItem == true { found = true; return false }
+            let used = [values.contentAccessDate, values.contentModificationDate].compactMap { $0 }.max() ?? .distantFuture
+            if used >= cutoff { found = true; return false }
+            return true
+        }
+        return found
+    }
+
+    /// Regular files inside a folder, at any depth.
+    static func files(in folder: URL) -> [URL] {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isSymbolicLinkKey]
+        guard let enumerator = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: keys, options: [],
+                                                               errorHandler: { _, _ in true }) else { return [] }
+        var files: [URL] = []
+        enumerator.forEachURL { url in
+            if Task.isCancelled { return false }
+            if let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true, values.isSymbolicLink != true {
+                files.append(url)
+            }
+            return true
+        }
+        return files
+    }
+
+    static func modified(_ url: URL) -> Date? {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
     }
 
     /// Attachments Mail copied out when they were opened or previewed. The messages keep the originals,
@@ -355,7 +472,9 @@ struct JunkScanner: Sendable {
 
     private func appCaches() -> [CleanItem] {
         let caches = library("Caches")
-        return children(of: caches, excluding: Browser.ownedCacheFolders.union(Self.protectedCaches).union([AppInfo.bundleID]))
+        // Both builds of this app (the release and a dev build) keep their Trash staging and updates there.
+        let own: Set<String> = [AppInfo.productionBundleID, AppInfo.productionBundleID + ".dev"]
+        return children(of: caches, excluding: Browser.ownedCacheFolders.union(Self.protectedCaches).union(own))
             // "<app>.ShipIt" holds an app update that is being installed (Squirrel); removing it breaks the update.
             .filter { !$0.url.lastPathComponent.hasSuffix(".ShipIt") }
             .flatMap { item -> [CleanItem] in
@@ -421,7 +540,7 @@ struct RunningAppMatcher: Sendable {
             return apps.first { browser.bundleIDs.contains($0.bundleID) }
         case .mailDownloads:
             return apps.first { $0.bundleID == "com.apple.mail" }
-        case .oldDownloads, .iosBackups, .trash:
+        case .oldDownloads, .oldFiles, .crashReports, .iosBackups, .trash:
             return nil
         case .userCache, .userLogs:
             let entry = item.name.lowercased()

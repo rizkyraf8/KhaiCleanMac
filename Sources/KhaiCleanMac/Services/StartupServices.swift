@@ -150,10 +150,13 @@ enum StartupScanner {
     /// Runs a tool and returns its output, or nil when it fails or outlives `timeout` (it is then stopped,
     /// so a stuck tool can't hold the app's work forever).
     @discardableResult
-    static func run(_ tool: String, _ arguments: [String], timeout: TimeInterval = 120) -> String? {
+    /// `onStart` gets the running process, so a caller can stop it early.
+    static func run(_ tool: String, _ arguments: [String], timeout: TimeInterval = 120,
+                    environment: [String: String]? = nil, onStart: ((Process) -> Void)? = nil) -> String? {
         let process = Process()
         process.executableURL = URL(filePath: tool)
         process.arguments = arguments
+        if let environment { process.environment = environment }
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
@@ -164,6 +167,7 @@ enum StartupScanner {
         } catch {
             return nil
         }
+        onStart?(process)
         // Read while it runs, so a chatty tool can't block on a full pipe.
         let collected = Mutex(Data())
         let readDone = DispatchSemaphore(value: 0)

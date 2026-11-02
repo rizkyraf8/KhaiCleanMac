@@ -3,6 +3,28 @@
 All notable changes to KhaiCleanMac are listed here.
 The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 
+## [Unreleased]
+
+### Added
+- **System Data** module: measures what macOS lumps together as "System Data" (app caches, logs, Xcode, iPhone backups, iCloud Drive copies, containers, Application Support, Mail, Messages, swap, system caches) and links each part to the module that cleans it. Only sizes are read. **Local Time Machine snapshots** are listed and can be deleted with `tmutil`, behind macOS's own administrator prompt; backups on the Time Machine disk aren't touched.
+- **iCloud Drive** module: lists big iCloud Drive files that are downloaded to this Mac and fully uploaded, and removes their local copy. Nothing is deleted; files still uploading or kept out of sync are never offered.
+- **Similar Photos** module: finds near-identical photos (burst shots, resized or recompressed copies) in Pictures, Desktop, Downloads and Documents with a 64-bit difference hash, grouped within 6 differing bits. Flat images (blank screenshots, solid colors, smooth gradients) hash alike whatever they show, so they're never grouped. The Photos Library isn't touched, nothing is preselected, every group keeps at least one photo, and a photo that changed since the scan is skipped.
+- **Security Scan** module: looks in Desktop, Documents and Downloads for stray private keys, exported password CSVs, `.env` files with secrets outside Git repositories, Google Cloud and AWS credentials, keystores and old backups. Only the first 8 KB of files named like secrets is read. SSH private keys in `~/.ssh` that others can read get a **Fix Permissions** button (`chmod 600`). Nothing is preselected, and the confirmation reminds you to empty the Trash and change leaked keys.
+- **Uninstaller › Leftovers of removed apps**: finds ~/Library entries (caches, preferences, containers, group containers, saved state, cookies…) named after an app ID that no app on this Mac has, Launch Services included. Helpers of installed apps, group containers any installed app declares, anything with `com.apple` in its name, macOS's own non-Apple IDs (Shortcuts' `group.is.workflow.*`, `org.cups.*`), command-line tools and anything changed in the last two weeks are left out; nothing is preselected.
+- **Uninstaller › Languages**: reports translations inside apps for languages the Mac doesn't use. Report only, since removing files inside an app breaks its code signature.
+- **Developer**: Python virtual environments (venvs in projects, Poetry, Pipenv, virtualenvwrapper, pyenv, Conda; only project venvs next to a requirements file are preselected), Android system images and emulators (images no emulator uses are preselected; a running emulator is locked; an emulator's `.ini` goes with it), RubyGems and Composer download caches, and Composer `vendor` folders.
+- **Homebrew card** in Developer, replacing the copy-only command: shows what `brew cleanup --prune=all` would remove and which formulae and casks are outdated, cleans through Homebrew itself (logged in History as permanent), and copies the upgrade command for Terminal. Pinned formulae stay out of it; auto-update and analytics are off for these calls.
+- **Smart Scan**: crash reports are their own category, logs and crash reports can be limited by age (Settings › General), and **Old Files** lists files and folders in Desktop and Documents unused for as long as old downloads. Old Files is never preselected, waits for Full Disk Access instead of triggering permission prompts, and skips iCloud items and Git repositories.
+- **Network disks** (SMB shares, NAS) can be picked in Large Files, Duplicates and Space Lens, with a note that scans are slower and the server may have no Trash. Mounted disks are now listed off the main thread, so a share whose server stopped answering can't freeze the window.
+- **Storage timeline** in History: disk use on the startup disk, noted once a day, with what was cleaned each day.
+- **AI second opinion** (Settings › AI, off by default): **Ask AI** in Large Files and Leftovers of removed apps asks Apple's on-device Foundation Models, the installed Claude CLI (with no tools) or the Anthropic API (`claude-opus-5-5`, key kept in the Keychain) whether up to 10 selected items are safe to remove. Only paths with `~` for the Home folder, sizes and dates are sent. Verdicts are advice; nothing is selected or removed by them.
+- **Dev builds**: `scripts/build-dev-app.sh` builds `KhaiCleanMac Dev.app` with its own bundle ID (`id.rizkyraf.KhaiCleanMac.dev`) and name, so it runs next to the installed app with separate settings, history, Keychain item and Full Disk Access, and never offers app updates. `build-app.sh` takes `KHAI_FLAVOR=dev` and `KHAI_CONFIG`.
+- **Command line**: `KhaiCleanMac scan [--category <name>] [--json] [--verbose]`, `history [--limit n] [--json]` and `version`. Scans only measure; removing still needs the app's confirmation.
+
+### Fixed
+- The menu bar went back to the CPU reading only sometimes after a background scan's results were opened, and could keep showing "100%". The label is now one text whose content changes instead of switching views.
+- Settings tabs shrink their labels slightly instead of overflowing with five tabs and longer translations.
+
 ## [0.9.0] - 2026-11-02
 
 ### Added

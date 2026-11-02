@@ -53,3 +53,13 @@ import Testing
         #expect(SafetyGuard.isAllowed(URL(filePath: "/Volumes/Photos/Movies/holiday.mov"), home: home))
     }
 }
+
+@Suite struct NetworkVolumeTests {
+    @Test func networkSharesAreMarked() {
+        let location = ScanLocation(url: URL(filePath: "/Volumes/NAS"), name: "NAS", isVolume: true, isRemovable: false, isNetwork: true)
+        #expect(location.symbol == "server.rack")
+        #expect(VolumeFinder.location(URL(filePath: "/Volumes/NAS"), values: URLResourceValues())?.isNetwork == false)
+        // The share's root is still a volume root that SafetyGuard never removes.
+        #expect(!SafetyGuard.isAllowed(URL(filePath: "/Volumes/NAS")))
+    }
+}

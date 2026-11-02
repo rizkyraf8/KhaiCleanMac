@@ -2,7 +2,7 @@ import ServiceManagement
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, appearance, reminders, about
+    case general, appearance, reminders, ai, about
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: L("Umum", "General")
         case .appearance: L("Tampilan", "Appearance")
         case .reminders: L("Pengingat", "Reminders")
+        case .ai: "AI"
         case .about: L("Tentang", "About")
         }
     }
@@ -20,6 +21,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: "gearshape.fill"
         case .appearance: "circle.lefthalf.filled"
         case .reminders: "bell.badge.fill"
+        case .ai: "sparkles"
         case .about: "info.circle.fill"
         }
     }
@@ -29,6 +31,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: Palette.mint
         case .appearance: Palette.lavender
         case .reminders: Palette.peach
+        case .ai: Palette.grape
         case .about: Palette.sky
         }
     }
@@ -51,6 +54,7 @@ struct SettingsView: View {
                     case .general: GeneralTab()
                     case .appearance: AppearanceTab()
                     case .reminders: RemindersTab()
+                    case .ai: AITab()
                     case .about: AboutTab()
                     }
                 }
@@ -171,9 +175,9 @@ private struct GeneralTab: View {
                     HStack(spacing: 12) {
                         GradientIcon(symbol: "arrow.down.circle.fill", colors: Palette.peach, size: 34, corner: 10)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(L("Downloads dianggap lama setelah", "Downloads count as old after"))
+                            Text(L("File dianggap lama setelah", "Files count as old after"))
                                 .font(.system(size: 13, weight: .semibold))
-                            Text(L("Dihitung dari terakhir dibuka, diubah, atau diunduh. Tidak pernah dipilih otomatis.", "Counted from the last open, change or download. Never preselected."))
+                            Text(L("Untuk Downloads, Desktop, dan Documents. Dihitung dari terakhir dibuka, diubah, atau diunduh. Tidak pernah dipilih otomatis.", "For Downloads, Desktop and Documents. Counted from the last open, change or download. Never preselected."))
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -181,6 +185,26 @@ private struct GeneralTab: View {
                         Spacer(minLength: 12)
                         Picker("", selection: $settings.downloadsAge) {
                             ForEach(DownloadsAge.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    .padding(.vertical, 8)
+                    Divider()
+                    HStack(spacing: 12) {
+                        GradientIcon(symbol: "doc.plaintext.fill", colors: Palette.sunny, size: 34, corner: 10)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("Log dan laporan crash lebih lama dari", "Logs and crash reports older than"))
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(L("Log yang lebih baru tetap disimpan, berguna kalau kamu sedang mencari tahu masalah sebuah app.", "Newer logs are kept, which helps when you're tracking down a problem with an app."))
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 12)
+                        Picker("", selection: $settings.logsAge) {
+                            ForEach(LogsAge.allCases) { Text($0.title).tag($0) }
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
@@ -382,6 +406,81 @@ private struct RemindersTab: View {
     }
 }
 
+private struct AITab: View {
+    @Bindable private var settings = AppSettings.shared
+    @State private var key = ""
+    @State private var hasKey = APIKeyStore.hasKey
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsSection(title: L("Pendapat kedua dari AI", "AI second opinion"), symbol: "sparkles") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L("Di Large Files dan Sisa app terhapus, tombol Tanya AI menanyakan apakah item yang dipilih aman dihapus. Yang dikirim hanya path (folder Home ditulis ~), ukuran, dan tanggal terakhir dipakai, paling banyak 10 item. Isi file tidak pernah dikirim, dan AI tidak pernah memilih atau menghapus apa pun.",
+                           "In Large Files and Leftovers of removed apps, the Ask AI button asks whether the selected items are safe to remove. Only paths (with your Home folder written as ~), sizes and last-used dates are sent, at most 10 items. File contents are never sent, and the AI never selects or removes anything."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Picker(L("Penyedia", "Provider"), selection: $settings.aiProvider) {
+                        ForEach(AIProvider.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.radioGroup)
+                    Text(settings.aiProvider.detail)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    switch settings.aiProvider {
+                    case .onDevice where !AIAnalyst.isOnDeviceAvailable:
+                        notice(L("Apple Intelligence tidak tersedia atau belum aktif di Mac ini.", "Apple Intelligence isn't available or isn't on for this Mac."))
+                    case .claudeCLI where AIAnalyst.claudeBinary() == nil:
+                        notice(L("Perintah claude tidak ditemukan. Pasang Claude Code dulu.", "The claude command wasn't found. Install Claude Code first."))
+                    case .anthropicAPI:
+                        apiKeyRow
+                    default:
+                        EmptyView()
+                    }
+                }
+                .softCard(padding: 14, radius: 16)
+            }
+        }
+    }
+
+    private var apiKeyRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if hasKey {
+                HStack {
+                    Label(L("Kunci API tersimpan di Keychain", "API key saved in your Keychain"), systemImage: "key.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Button(L("Hapus Kunci", "Remove Key")) {
+                        APIKeyStore.delete()
+                        hasKey = false
+                    }
+                    .buttonStyle(SoftButtonStyle())
+                }
+            } else {
+                HStack {
+                    SecureField(L("Kunci API Anthropic", "Anthropic API key"), text: $key)
+                        .textFieldStyle(.roundedBorder)
+                    Button(L("Simpan", "Save")) {
+                        hasKey = APIKeyStore.save(key)
+                        key = ""
+                    }
+                    .buttonStyle(SoftButtonStyle())
+                    .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                Text(L("Pemakaian ditagih ke akun Anthropic-mu. Model: \(AIAnalyst.model).", "Usage is billed to your Anthropic account. Model: \(AIAnalyst.model)."))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private func notice(_ text: String) -> some View {
+        Label(text, systemImage: "exclamationmark.triangle.fill")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Palette.sunny[1])
+    }
+}
+
 private struct AboutTab: View {
     @Bindable private var settings = AppSettings.shared
 
@@ -447,14 +546,17 @@ private struct TabBar: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 2) {
             ForEach(SettingsTab.allCases) { tab in
                 let isSelected = selection == tab
                 Button {
                     selection = tab
                 } label: {
+                    // Five tabs share 500 points, so longer translations shrink a little instead of overflowing.
                     Label(tab.title, systemImage: tab.symbol)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .foregroundStyle(isSelected ? Color.white : Color.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)

@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 
 struct HistoryView: View {
@@ -18,6 +19,10 @@ struct HistoryView: View {
             }
 
             if history.records.isEmpty {
+                // Disk use is noted from the first launch, so the chart can show before any cleanup.
+                if StorageTimeline.shared.points.count > 1 {
+                    StorageTimelineCard(records: [])
+                }
                 EmptyStateView(
                     symbol: module.symbol, colors: module.colors,
                     title: L("Belum ada riwayat", "No history yet"),
@@ -28,6 +33,7 @@ struct HistoryView: View {
                 if !Restorer.canReadTrash() { accessNote }
                 ScrollView {
                     LazyVStack(spacing: 14) {
+                        StorageTimelineCard(records: history.records)
                         ForEach(history.records) { record in
                             recordCard(record)
                         }
@@ -209,5 +215,81 @@ struct HistoryView: View {
             ToastMessage(text: L("Gagal mengembalikan \(name)", "Couldn't restore \(name)"),
                          symbol: "exclamationmark.triangle.fill", colors: Palette.berry)
         }
+    }
+}
+
+/// Disk use over time, with what KhaiCleanMac cleaned on each day.
+struct StorageTimelineCard: View {
+    let records: [CleanRecord]
+    private var timeline: StorageTimeline { .shared }
+
+    var body: some View {
+        let points = timeline.points
+        let cleaned = StorageTimeline.cleanedPerDay(records)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                GradientIcon(symbol: "chart.xyaxis.line", colors: Palette.grape, size: 42)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L("Pemakaian disk dari waktu ke waktu", "Storage over time"))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text(L("Garis: ruang terpakai di disk startup, dicatat sekali sehari selama KhaiCleanMac berjalan. Batang: yang dibersihkan hari itu.",
+                           "Line: space used on the startup disk, noted once a day while KhaiCleanMac runs. Bars: what was cleaned that day."))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if let first = points.first, let last = points.last, points.count > 1 {
+                    let change = last.used - first.used
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text((change > 0 ? "+" : change < 0 ? "−" : "") + abs(change).formattedBytes)
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundStyle(change > 0 ? Palette.berry[1] : Palette.leaf[1])
+                        Text(L("sejak \(first.date.formatted(date: .abbreviated, time: .omitted))", "since \(first.date.formatted(date: .abbreviated, time: .omitted))"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if points.count < 2 && cleaned.isEmpty {
+                Text(L("Grafik mulai terisi setelah KhaiCleanMac berjalan beberapa hari.", "The chart fills in once KhaiCleanMac has run for a few days."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.tertiary)
+            } else {
+                // Two charts on one time axis: used space is hundreds of GB, a day's cleanup a few.
+                let range = Self.dateRange(points.map(\.date) + cleaned.map(\.day))
+                if points.count > 1 {
+                    Chart(points, id: \.date) { point in
+                        LineMark(x: .value(L("Hari", "Day"), point.date, unit: .day),
+                                 y: .value(L("Terpakai", "Used"), Double(point.used) / 1e9))
+                            .foregroundStyle(Palette.grape[1])
+                            .interpolationMethod(.monotone)
+                            .symbol(.circle)
+                    }
+                    .chartXScale(domain: range)
+                    .chartYScale(domain: .automatic(includesZero: false))
+                    .chartYAxisLabel(L("GB terpakai", "GB used"))
+                    .frame(height: 130)
+                }
+                if !cleaned.isEmpty {
+                    Chart(cleaned, id: \.day) { day in
+                        BarMark(x: .value(L("Hari", "Day"), day.day, unit: .day),
+                                y: .value(L("Dibersihkan", "Cleaned"), Double(day.size) / 1e9))
+                            .foregroundStyle(LinearGradient(colors: Palette.mint, startPoint: .bottom, endPoint: .top))
+                    }
+                    .chartXScale(domain: range)
+                    .chartYAxisLabel(L("GB dibersihkan", "GB cleaned"))
+                    .frame(height: 70)
+                }
+            }
+        }
+        .softCard()
+    }
+
+    /// At least a week, so a single day doesn't fill the whole width.
+    static func dateRange(_ dates: [Date]) -> ClosedRange<Date> {
+        let end = Calendar.current.startOfDay(for: (dates.max() ?? Date()).addingTimeInterval(86_400))
+        let start = min(Calendar.current.startOfDay(for: dates.min() ?? Date()), end.addingTimeInterval(-7 * 86_400))
+        return start...end
     }
 }

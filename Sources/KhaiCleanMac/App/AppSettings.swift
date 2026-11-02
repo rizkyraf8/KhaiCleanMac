@@ -43,6 +43,21 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// The language's name in English, for telling a model which language to answer in.
+    var englishName: String {
+        switch self {
+        case .indonesian: "Indonesian"
+        case .english: "English"
+        case .japanese: "Japanese"
+        case .chinese: "Simplified Chinese"
+        case .spanish: "Spanish (Spain)"
+        case .german: "German"
+        case .portuguese: "Brazilian Portuguese"
+        case .french: "French"
+        case .korean: "Korean"
+        }
+    }
+
     var locale: Locale {
         switch self {
         case .indonesian: Locale(identifier: "id_ID")
@@ -123,6 +138,8 @@ final class AppSettings: @unchecked Sendable {
         static let chromeCacheAge = "chromeCacheAge"
         static let deletesPermanently = "deletesPermanently"
         static let downloadsAge = "downloadsAge"
+        static let logsAge = "logsAge"
+        static let aiProvider = "aiProvider"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
         static let checksForUpdates = "checksForUpdates"
         static let lastUpdateCheck = "lastUpdateCheck"
@@ -187,6 +204,16 @@ final class AppSettings: @unchecked Sendable {
         didSet { save(downloadsAge.rawValue, forKey: Keys.downloadsAge) }
     }
 
+    /// Only log files and crash reports older than this are offered. "Any age" keeps the old behaviour.
+    var logsAge: LogsAge {
+        didSet { save(logsAge.rawValue, forKey: Keys.logsAge) }
+    }
+
+    /// Who gives the optional AI second opinion. Off by default: nothing is sent until the user picks one.
+    var aiProvider: AIProvider {
+        didSet { save(aiProvider.rawValue, forKey: Keys.aiProvider) }
+    }
+
     /// Off by default. When on, cleaning deletes files for good instead of using the Trash.
     /// Settings only turns it on after the user confirms.
     var deletesPermanently: Bool {
@@ -211,6 +238,8 @@ final class AppSettings: @unchecked Sendable {
         chromeCacheAge = ChromeCacheAge(rawValue: defaults.integer(forKey: Keys.chromeCacheAge)) ?? .days30
         deletesPermanently = defaults.bool(forKey: Keys.deletesPermanently)
         downloadsAge = DownloadsAge(rawValue: defaults.integer(forKey: Keys.downloadsAge)) ?? .days90
+        logsAge = LogsAge(rawValue: defaults.integer(forKey: Keys.logsAge)) ?? .any
+        aiProvider = defaults.string(forKey: Keys.aiProvider).flatMap(AIProvider.init) ?? .off
         hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
         checksForUpdates = defaults.object(forKey: Keys.checksForUpdates) as? Bool ?? true
         lastUpdateCheck = defaults.object(forKey: Keys.lastUpdateCheck) as? Date
@@ -279,6 +308,15 @@ enum DownloadsAge: Int, CaseIterable, Identifiable, Sendable {
 
     var id: Int { rawValue }
     var title: String { L("\(rawValue) hari", "\(rawValue) days") }
+}
+
+enum LogsAge: Int, CaseIterable, Identifiable, Sendable {
+    case any = 0
+    case days7 = 7
+    case days30 = 30
+
+    var id: Int { rawValue }
+    var title: String { self == .any ? L("Semua", "Any age") : L("\(rawValue) hari", "\(rawValue) days") }
 }
 
 /// Gives a window's content the locale of the chosen language (dates, numbers, sizes).

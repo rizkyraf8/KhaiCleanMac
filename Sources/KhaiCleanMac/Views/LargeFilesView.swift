@@ -150,9 +150,16 @@ struct LargeFilesView: View {
                     buttonTitle: Removal.actionTitle,
                     buttonSymbol: "trash",
                     colors: module.colors,
-                    isDisabled: model.selected.isEmpty
+                    isDisabled: model.selected.isEmpty,
+                    action: { confirmTrash = true }
                 ) {
-                    confirmTrash = true
+                    if !model.selected.isEmpty {
+                        AIReviewButton {
+                            let files = model.selectedFiles.sorted { $0.size > $1.size }
+                            return AIAnalyst.inputs(files.map(\.item), lastUsed: Dictionary(files.compactMap { file in file.lastUsed.map { (file.url, $0) } }) { a, _ in a },
+                                                    context: "Large Files (files over a size limit in the user's folders)")
+                        }
+                    }
                 }
             }
         }

@@ -12,6 +12,10 @@ struct ContentView: View {
     @State private var extensions = ExtensionsModel()
     @State private var appUpdates: AppUpdatesModel
     @State private var privacy = PrivacyModel()
+    @State private var systemData = SystemDataModel()
+    @State private var iCloud = ICloudModel()
+    @State private var similarPhotos = SimilarPhotosModel()
+    @State private var security = SecurityScanModel()
     @Bindable private var router = AppRouter.shared
     @State private var uninstaller: UninstallerModel
 
@@ -59,6 +63,10 @@ struct ContentView: View {
                 case .uninstaller: UninstallerView(model: uninstaller)
                 case .appUpdates: AppUpdatesView(model: appUpdates)
                 case .privacy: PrivacyView(model: privacy)
+                case .similarPhotos: SimilarPhotosView(model: similarPhotos)
+                case .iCloud: ICloudView(model: iCloud)
+                case .systemData: SystemDataView(model: systemData, onOpen: open)
+                case .security: SecurityScanView(model: security)
                 }
             }
             .padding(.horizontal, 30)

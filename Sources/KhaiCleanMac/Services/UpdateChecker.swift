@@ -163,7 +163,8 @@ final class UpdateChecker {
     /// Runs the daily check if it's on and a day has passed since the last one.
     func checkIfDue() async {
         let settings = AppSettings.shared
-        guard settings.checksForUpdates, !AppInfo.isSnapshot, status != .checking else { return }
+        // A dev build isn't a release: offering 0.9.x over it would only replace it with the production app.
+        guard settings.checksForUpdates, !AppInfo.isSnapshot, !AppInfo.isDevBuild, status != .checking else { return }
         if let last = settings.lastUpdateCheck, Date().timeIntervalSince(last) < Self.interval, latest != nil { return }
         await check()
     }
@@ -185,7 +186,7 @@ final class UpdateChecker {
 
     /// True when the update can be installed here; otherwise the button opens the browser download.
     var canInstallInApp: Bool {
-        guard isUpdateAvailable, let latest else { return false }
+        guard isUpdateAvailable, let latest, !AppInfo.isDevBuild else { return false }
         #if DEBUG
         if installedOverride != nil { return latest.sha256 != nil }
         #endif

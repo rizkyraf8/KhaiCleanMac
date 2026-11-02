@@ -74,14 +74,17 @@ final class SmartScanModel {
         report = nil
         let matcher = RunningAppMatcher.current()
         let scanner = JunkScanner(chromeMaxAgeDays: AppSettings.shared.chromeCacheAge.rawValue,
-                                  downloadsMaxAgeDays: AppSettings.shared.downloadsAge.rawValue)
+                                  downloadsMaxAgeDays: AppSettings.shared.downloadsAge.rawValue,
+                                  logsMaxAgeDays: AppSettings.shared.logsAge.rawValue)
         isChromeRunning = matcher.apps.contains { Browser.chrome.bundleIDs.contains($0.bundleID) }
         hasFullDiskAccess = Permissions.hasFullDiskAccess
         chromeUpdate = nil
         var userApps = Set<String>()
         for kind in JunkKind.allCases {
             currentKind = kind
-            let items = await Task.detached(priority: .userInitiated) { scanner.scan(kind) }.value
+            // Reading Desktop or Documents without Full Disk Access would pop up a permission prompt.
+            let skips = kind == .oldFiles && !hasFullDiskAccess
+            let items = skips ? [] : await Task.detached(priority: .userInitiated) { scanner.scan(kind) }.value
             // Cancelled while that kind was being read: a new scan may already own the state.
             guard !Task.isCancelled else { return }
             if kind == .browsers {
@@ -275,6 +278,8 @@ final class UninstallerModel {
     var selectedLeftovers: Set<URL> = []
     var search = ""
     var toast: ToastMessage?
+    let orphans = OrphanLeftoversModel()
+    let languages = LanguageReportModel()
 
     private var sizeTask: Task<Void, Never>?
 
