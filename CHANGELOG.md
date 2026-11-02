@@ -3,9 +3,15 @@
 All notable changes to KhaiCleanMac are listed here.
 The project follows [Semantic Versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 
-## [Unreleased]
+## [0.9.0] - 2026-11-02
 
 ### Added
+- **Smart Scan in the background** ([#7](https://github.com/rizkyraf8/KhaiCleanMac/issues/7)). A scan now belongs to the app instead of the main window, so closing the window no longer loses a running scan or its results, and the window and the menu bar share the same scan.
+  - The menu bar icon shows the scan's progress, then a checkmark and the size found until the results are opened.
+  - The menu bar panel has a **Smart Scan** card: start a scan, follow it, stop it, and **See results** opens the window at those results. A background scan never cleans anything; cleaning still happens in the window, with confirmation.
+  - Starting a scan while one is scanning or cleaning does nothing, and the main window has a **Stop** button too.
+  - Reopening the window during a scan, or with results not yet seen, goes straight to Smart Scan.
+  - With "Keep running in the menu bar" off, closing the window during a scan asks whether to keep scanning or stop and quit.
 - **Docker cleanup** in Developer. Instead of a command to copy, a Docker card shows what Docker reports as reclaimable and cleans by age: created over **7, 30 or 60 days** ago. Docker removes things itself: dangling images and build cache through `image prune` and `builder prune` with an `until` filter, tagged images one by one with `image rm` when they came from a registry (they have a repo digest, so they can be pulled again), and opted-in stopped containers by ID with `container rm`. Images built, committed or loaded on this Mac are kept.
   - **Only this Mac.** The active Docker context must be the socket of an engine on this Mac (Docker Desktop, OrbStack, Colima, Lima, Rancher Desktop or `/var/run/docker.sock`, also with symlinks resolved) before anything is read or removed. Any other socket and any TCP port, localhost included, may be a tunnel to a server and is refused. Every command names that context, the context is checked again right before cleaning, and `builder prune` uses that context's own builder (`BUILDX_BUILDER`), not a remote or cloud one buildx may have selected. `DOCKER_HOST` and `DOCKER_CONTEXT` are ignored.
   - **Stopped containers are opt-in**, listed by name and removed by ID, so only the ones shown go (none when Docker couldn't list them), with a warning: files inside a container that aren't in a volume (a database run without `-v`) go with it. Volumes and running containers are never touched.
@@ -190,6 +196,7 @@ First public release.
 - **Menu bar monitor:** shows CPU, memory, disk and battery.
 - Everything that gets removed goes to the Trash, and nothing is removed without confirmation.
 
+[0.9.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/rizkyraf8/KhaiCleanMac/compare/v0.6.0...v0.6.1
